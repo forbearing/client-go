@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm
+  namespace: test
+  labels:
+    type: config
+data:
+  name: hybfkuf

@@ -1,0 +1,70 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dep-html
+  namespace: test
+  labels:
+    app: dep
+    type: deployment
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: nfs-sc
+  resources:
+    requests:
+      storage: 8Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dep-data
+  namespace: test
+  labels:
+    app: dep
+    type: deployment
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: nfs-sc
+  resources:
+    requests:
+      storage: 8Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dep
+  namespace: test
+  labels:
+    app: dep
+    type: deployment
+spec:
+  selector: 
+    matchLabels:
+      app: dep
+      type: deployment
+  template:
+    metadata:
+      labels:
+        app: dep
+        type: deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        resources:
+          limits:
+            cpu: 100m
+        volumeMounts:
+        - name: nginx-html
+          mountPath: /usr/share/nginx/html/
+        - name: nginx-data
+          mountPath: /data
+      volumes:
+      - name: nginx-html
+        persistentVolumeClaim:
+          claimName: dep-html
+      - name: nginx-data
+        persistentVolumeClaim:
+          claimName: dep-data
