@@ -4,11 +4,22 @@
 
 ### 参考
 
+- [client-go 源码分析](https://herbguo.gitbook.io/client-go/)
 - [k8s-client-go](https://github.com/owenliang/k8s-client-go)
 - [kube-client-example](https://github.com/cliterb/kube-client-example)
 - [client-go 实战的文章](https://xinchen.blog.csdn.net/article/details/113753087)、 [client-go 实战的代码](https://github.com/zq2599/blog_demos/tree/master/client-go-tutorials)
 - [client-go/example](https://github.com/kubernetes/client-go/tree/master/examples)
 - [Kubernetes API Reference Docs](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/)
+- [Working with kubernetes configmaps, part 1: volume mounts](https://itnext.io/working-with-kubernetes-configmaps-part-1-volume-mounts-f0ace283f5aa)
+- [Working with kubernetes configmaps, part 2: Watchers](https://itnext.io/working-with-kubernetes-configmaps-part-2-watchers-b6dd0e583d71)
+- [configmap watch example](https://github.com/ScarletTanager/configmap-watcher-example)
+- [When using client-go watch api to watch deployment, result channel will auto-closed after around 5 mins #623](https://github.com/kubernetes/client-go/issues/623)
+- [clien-go/tools/watch](https://github.com/kubernetes/client-go/tree/master/tools/watch)
+- [kubectl and client-go](http://yuezhizizhang.github.io/kubernetes/kubectl/client-go/2020/05/13/kubectl-client-go-part-1.html)
+- [client-go](https://pkg.go.dev/k8s.io/client-go)
+- [can we emulate "kubectl apply" using client-go](https://github.com/kubernetes/client-go/issues/216)
+- [v2 API proposal "desired vs actual" #17333](https://github.com/kubernetes/kubernetes/issues/17333)
+- 
 
 
 
