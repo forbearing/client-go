@@ -1,8 +1,8 @@
-### client-go examples
-
 ### pkg
 
 pkg 目录是我封装了的一些对象和方法. 可以直接通过文件创建 deployment, pod, service, configmap 等.
+
+
 
 ### 参考
 
