@@ -27,7 +27,11 @@ func init() {
 }
 
 func main() {
-	metricsExmaples()
+	//clusterrolebindingExamples()
+	//clusterroleExamples()
+	//configmapExamples()
+	cronjobExamples()
+	//metricsExmaples()
 	//applyExamples()
 	//deploymentExamples()
 	//podExamples()
@@ -36,7 +40,6 @@ func main() {
 	//nodeExamples()
 	//namespaceExamples()
 	//serviceExamples()
-	//configmapExamples()
 	//secretExamples()
 	//serviceaccountExamples()
 	//persistentvolumeExamples()
@@ -47,8 +50,6 @@ func main() {
 	//ingressclassExamples()
 	//roleExamples()
 	//rolebindingExamples()
-	//clusterroleExamples()
-	//clusterrolebindingExamples()
 	//networkpolicyExamples()
 	//applyFile()
 	//kubectl()
