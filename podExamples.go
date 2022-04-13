@@ -23,6 +23,53 @@ func podExamples() {
 	_ = labelSelector
 	_ = podHandler
 
+	// 1. create pod from raw
+	podHandler.Delete("haha")
+	time.Sleep(time.Second * 5)
+	raw := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name":      "haha",
+			"namespace": NAMESPACE,
+			"labels": map[string]interface{}{
+				"app":  "haha",
+				"type": "haha",
+			},
+		},
+		"spec": map[string]interface{}{
+			"containers": []map[string]interface{}{
+				{
+					"name":  "web",
+					"image": "nginx",
+					"ports": []map[string]interface{}{
+						{
+							"name":          "http",
+							"protocol":      "TCP",
+							"containerPort": 80,
+						},
+						{
+							"name":          "https",
+							"protocol":      "TCP",
+							"containerPort": 443,
+						},
+					},
+				},
+				{
+					"name":    "tools",
+					"image":   "busybox",
+					"command": []string{"cat"},
+				},
+			},
+		},
+	}
+	if pod, err := podHandler.CreateFromRaw(raw); err != nil {
+		log.Error("create pod from raw failed,")
+		log.Error(err)
+	} else {
+		log.Info("create pod from raw success")
+		log.Info(pod.Name)
+	}
 	// 1. create pod
 	podHandler.Delete(name)
 	time.Sleep(time.Second * 5)
