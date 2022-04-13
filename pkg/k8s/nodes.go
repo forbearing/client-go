@@ -153,9 +153,21 @@ func (n *Node) Get(name string) (*corev1.Node, error) {
 	return n.GetByName(name)
 }
 
-func (n *Node) List(labelSelector string) (*corev1.NodeList, error) {
-	n.Options.ListOptions.LabelSelector = labelSelector
-	return n.clientset.CoreV1().Nodes().List(n.ctx, n.Options.ListOptions)
+// ListByLabel list nodes by labels
+func (n *Node) ListByLabel(labels string) (*corev1.NodeList, error) {
+	listOptions := n.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return n.clientset.CoreV1().Nodes().List(n.ctx, *listOptions)
+}
+
+// List list nodes by labels, alias to "ListByLabel"
+func (n *Node) List(labels string) (*corev1.NodeList, error) {
+	return n.ListByLabel(labels)
+}
+
+// ListAll list all nodes
+func (n *Node) ListAll() (*corev1.NodeList, error) {
+	return n.ListByLabel("")
 }
 
 // check if the node status is ready

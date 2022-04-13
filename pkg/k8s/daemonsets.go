@@ -312,12 +312,6 @@ func (d *DaemonSet) Delete(name string) error {
 	return d.DeleteByName(name)
 }
 
-// list daemonset by labelSelector
-func (d *DaemonSet) List(labelSelector string) (*appsv1.DaemonSetList, error) {
-	d.Options.ListOptions.LabelSelector = labelSelector
-	return d.clientset.AppsV1().DaemonSets(d.namespace).List(d.ctx, d.Options.ListOptions)
-}
-
 // get daemonset from bytes
 func (d *DaemonSet) GetFromBytes(data []byte) (*appsv1.DaemonSet, error) {
 	dsJson, err := yaml.ToJSON(data)
@@ -358,6 +352,28 @@ func (d *DaemonSet) GetByName(name string) (*appsv1.DaemonSet, error) {
 // get daemonset by name, alias to "GetByName"
 func (d *DaemonSet) Get(name string) (*appsv1.DaemonSet, error) {
 	return d.GetByName(name)
+}
+
+// ListByLabel list daemonsets by labels
+func (d *DaemonSet) ListByLabel(labels string) (*appsv1.DaemonSetList, error) {
+	listOptions := d.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return d.clientset.AppsV1().DaemonSets(d.namespace).List(d.ctx, *listOptions)
+}
+
+// List list daemonsets by labels, alias to "ListByLabel"
+func (d *DaemonSet) List(labels string) (*appsv1.DaemonSetList, error) {
+	return d.ListByLabel(labels)
+}
+
+// ListByNamespace list daemonsets by namespace
+func (d *DaemonSet) ListByNamespace(namespace string) (*appsv1.DaemonSetList, error) {
+	return d.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all daemonsets  in the k8s cluster
+func (d *DaemonSet) ListAll() (*appsv1.DaemonSetList, error) {
+	return d.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // get daemonset all pods

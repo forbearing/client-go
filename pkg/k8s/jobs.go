@@ -24,6 +24,14 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+type JobController struct {
+	Labels             map[string]string `json:"labels"`
+	CreationTimestamp  metav1.Time       `json:"creationTimestamp"`
+	LastScheduleTime   metav1.Time       `json:"lastScheduleTime"`
+	LastSuccessfulTime metav1.Time       `json:"lastSuccessfulTime"`
+
+	metav1.OwnerReference `json:"ownerReference"`
+}
 type Job struct {
 	kubeconfig string
 	namespace  string
@@ -131,6 +139,7 @@ func (in *Job) DeepCopy() *Job {
 	out.Options.UpdateOptions = *in.Options.UpdateOptions.DeepCopy()
 	out.Options.PatchOptions = *in.Options.PatchOptions.DeepCopy()
 	out.Options.ApplyOptions = *in.Options.ApplyOptions.DeepCopy()
+	out.SetPropagationPolicy("background")
 
 	return out
 }
@@ -151,6 +160,7 @@ func (j *Job) WithDryRun() *Job {
 	job.Options.DeleteOptions.DryRun = []string{metav1.DryRunAll}
 	job.Options.PatchOptions.DryRun = []string{metav1.DryRunAll}
 	job.Options.ApplyOptions.DryRun = []string{metav1.DryRunAll}
+	job.SetPropagationPolicy("background")
 	return job
 }
 func (j *Job) SetTimeout(timeout int64) {
@@ -169,8 +179,12 @@ func (j *Job) SetForceDelete(force bool) {
 	if force {
 		gracePeriodSeconds := int64(0)
 		j.Options.DeleteOptions.GracePeriodSeconds = &gracePeriodSeconds
+		propagationPolicy := metav1.DeletePropagationBackground
+		j.Options.DeleteOptions.PropagationPolicy = &propagationPolicy
 	} else {
 		j.Options.DeleteOptions = metav1.DeleteOptions{}
+		propagationPolicy := metav1.DeletePropagationBackground
+		j.Options.DeleteOptions.PropagationPolicy = &propagationPolicy
 	}
 }
 
@@ -377,20 +391,97 @@ func (j *Job) Get(name string) (*batchv1.Job, error) {
 	return j.GetByName(name)
 }
 
-// check job if is active
-func (j *Job) IsFinish(name string) (active bool) {
+// ListByLabel list jobs by labels
+func (j *Job) ListByLabel(labels string) (*batchv1.JobList, error) {
+	listOptions := j.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return j.clientset.BatchV1().Jobs(j.namespace).List(j.ctx, *listOptions)
+}
+
+// List list jobs by labels, alias to "ListByLabel"
+func (j *Job) List(labels string) (*batchv1.JobList, error) {
+	return j.ListByLabel(labels)
+}
+
+// ListByNamespace list jobs by namespace
+func (j *Job) ListByNamespace(namespace string) (*batchv1.JobList, error) {
+	return j.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all jobs in the k8s cluster
+func (j *Job) ListAll(namespace string) (*batchv1.JobList, error) {
+	return j.WithNamespace(metav1.NamespaceAll).ListByLabel("")
+}
+
+// GetController returns a JobController object by job name if the controllee(job) has a controller.
+func (j *Job) GetController(name string) (*JobController, error) {
+	if len(name) == 0 {
+		return nil, fmt.Errorf("not set the job name")
+	}
+	job, err := j.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	ownerRef := metav1.GetControllerOf(job)
+	if ownerRef == nil {
+		return nil, fmt.Errorf("the job %q doesn't have controller", name)
+	}
+	oc := JobController{OwnerReference: *ownerRef}
+
+	// new a cronjob handler
+	cronjobHandler, err := NewCronJob(j.ctx, j.namespace, j.kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	cronjob, err := cronjobHandler.Get(ownerRef.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	oc.Labels = cronjob.Labels
+	oc.CreationTimestamp = cronjob.ObjectMeta.CreationTimestamp
+	oc.LastScheduleTime = *(cronjob.Status.LastScheduleTime)
+	oc.LastSuccessfulTime = *(cronjob.Status.LastSuccessfulTime)
+	return &oc, nil
+}
+
+// check job if is completion
+func (j *Job) IsComplete(name string) bool {
+	// if job not exist, return false
+	job, err := j.Get(name)
+	if err != nil {
+		return false
+	}
+
+	for _, cond := range job.Status.Conditions {
+		if cond.Status == corev1.ConditionTrue && cond.Type == batchv1.JobComplete {
+			return true
+		}
+	}
+
+	return false
+}
+
+// check job if is condition is
+// job finished means that the job condition is "complete" or "failed"
+func (j *Job) IsFinish(name string) bool {
+	// 1. job not exist, return true
 	job, err := j.Get(name)
 	if err != nil {
 		return true
 	}
-	//if job.Status.Active != 0 {
+	// 2. if job complete return true
+	// 3. if job failed return true
+	// 4. all other job condition return false
 	for _, cond := range job.Status.Conditions {
-		if cond.Status == corev1.ConditionTrue {
+		if cond.Status == corev1.ConditionTrue && cond.Type == batchv1.JobComplete {
+			return true
+		}
+		if cond.Status == corev1.ConditionTrue && cond.Type == batchv1.JobFailed {
 			return true
 		}
 	}
-	//}
-	return
+	return false
 }
 
 // wait job status to be "true"
@@ -456,12 +547,6 @@ func (j *Job) WaitNotExist(name string) (err error) {
 			}
 		}
 	}
-}
-
-// list job by labelSelector
-func (j *Job) List(labelSelector string) (*batchv1.JobList, error) {
-	j.Options.ListOptions.LabelSelector = labelSelector
-	return j.clientset.BatchV1().Jobs(j.namespace).List(j.ctx, j.Options.ListOptions)
 }
 
 // watch jobs by name

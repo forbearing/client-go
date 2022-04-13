@@ -175,17 +175,3 @@ type NodeInfo struct {
 	OSImage                 string
 	SystemUUID              string
 }
-
-// about pods
-type Container struct {
-	Name  string
-	Image string
-}
-type OwnerController struct {
-	Kind              string            `json:"kind"`
-	Name              string            `json:"name"`
-	Labels            map[string]string `json:"labels"`
-	Ready             string            `json:"ready"`
-	Images            []string          `json:"images"`
-	CreationTimestamp metav1.Time       `json:"creationTimestamp"`
-}

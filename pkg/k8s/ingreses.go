@@ -347,10 +347,26 @@ func (i *Ingress) Get(name string) (*networkingv1.Ingress, error) {
 	return i.GetByName(name)
 }
 
-// list ingress by labelSelector
-func (i *Ingress) List(labelSelector string) (*networkingv1.IngressList, error) {
-	i.Options.ListOptions.LabelSelector = labelSelector
-	return i.clientset.NetworkingV1().Ingresses(i.namespace).List(i.ctx, i.Options.ListOptions)
+// list ingresses by labels
+func (i *Ingress) ListByLabel(labels string) (*networkingv1.IngressList, error) {
+	listOptions := i.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return i.clientset.NetworkingV1().Ingresses(i.namespace).List(i.ctx, *listOptions)
+}
+
+// list ingresses by labels, alias to "ListByLabel"
+func (i *Ingress) List(labels string) (*networkingv1.IngressList, error) {
+	return i.ListByLabel(labels)
+}
+
+// list ingresses by namespace
+func (i *Ingress) ListByNamespace(namespace string) (*networkingv1.IngressList, error) {
+	return i.WithNamespace(namespace).ListByLabel("")
+}
+
+// list all ingresses in the k8s cluster
+func (i *Ingress) ListAll() (*networkingv1.IngressList, error) {
+	return i.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // watch ingress by name

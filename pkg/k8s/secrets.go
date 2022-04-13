@@ -352,10 +352,26 @@ func (s *Secret) Get(name string) (*corev1.Secret, error) {
 	return s.GetByName(name)
 }
 
-// list secret by labelSelector
-func (s *Secret) List(labelSelector string) (*corev1.SecretList, error) {
-	s.Options.ListOptions.LabelSelector = labelSelector
-	return s.clientset.CoreV1().Secrets(s.namespace).List(s.ctx, s.Options.ListOptions)
+// ListByLabel list secrets by labels
+func (s *Secret) ListByLabel(labels string) (*corev1.SecretList, error) {
+	listOptions := s.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return s.clientset.CoreV1().Secrets(s.namespace).List(s.ctx, *listOptions)
+}
+
+// List list secrets by labels, alias to "ListByLabel"
+func (s *Secret) List(labels string) (*corev1.SecretList, error) {
+	return s.ListByLabel(labels)
+}
+
+// ListByNamespace list secrets by namespace
+func (s *Secret) ListByNamespace(namespace string) (*corev1.SecretList, error) {
+	return s.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all secrets in the k8s cluster
+func (s *Secret) ListAll() (*corev1.SecretList, error) {
+	return s.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // watch secret by name

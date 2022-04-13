@@ -307,12 +307,6 @@ func (p *PersistentVolumeClaim) Delete(name string) error {
 	return p.DeleteByName(name)
 }
 
-// list persistentvolumeclaim by labelSelector
-func (p *PersistentVolumeClaim) List(labelSelector string) (*corev1.PersistentVolumeClaimList, error) {
-	p.Options.ListOptions.LabelSelector = labelSelector
-	return p.clientset.CoreV1().PersistentVolumeClaims(p.namespace).List(p.ctx, p.Options.ListOptions)
-}
-
 // get persistentvolumeclaim from bytes
 func (p *PersistentVolumeClaim) GetFromBytes(data []byte) (*corev1.PersistentVolumeClaim, error) {
 	pvcJson, err := yaml.ToJSON(data)
@@ -352,6 +346,28 @@ func (p *PersistentVolumeClaim) GetByName(name string) (*corev1.PersistentVolume
 // get persistentvolumeclaim by name, alias to "GetByName"
 func (p *PersistentVolumeClaim) Get(name string) (*corev1.PersistentVolumeClaim, error) {
 	return p.GetByName(name)
+}
+
+// ListByLabel list persistentvolumeclaims by labels
+func (p *PersistentVolumeClaim) ListByLabel(labels string) (*corev1.PersistentVolumeClaimList, error) {
+	listOptions := p.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return p.clientset.CoreV1().PersistentVolumeClaims(p.namespace).List(p.ctx, *listOptions)
+}
+
+// List list persistentvolumeclaims by labels, alias to "ListByLabel"
+func (p *PersistentVolumeClaim) List(labels string) (*corev1.PersistentVolumeClaimList, error) {
+	return p.ListByLabel(labels)
+}
+
+// ListByNamespace list persistentvolumeclaims by namespace
+func (p *PersistentVolumeClaim) ListByNamespace(namespace string) (*corev1.PersistentVolumeClaimList, error) {
+	return p.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all persistentvolumeclaims in the k8s cluster
+func (p *PersistentVolumeClaim) ListAll() (*corev1.PersistentVolumeClaimList, error) {
+	return p.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // get the pv name of the persistentvolumeclaim

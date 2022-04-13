@@ -310,12 +310,6 @@ func (c *ConfigMap) Delete(name string) error {
 	return c.DeleteByName(name)
 }
 
-// list configmap by labelSelector
-func (c *ConfigMap) List(labelSelector string) (*corev1.ConfigMapList, error) {
-	c.Options.ListOptions.LabelSelector = labelSelector
-	return c.clientset.CoreV1().ConfigMaps(c.namespace).List(c.ctx, c.Options.ListOptions)
-}
-
 // get configmap from bytes
 func (c *ConfigMap) GetFromBytes(data []byte) (*corev1.ConfigMap, error) {
 	cmJson, err := yaml.ToJSON(data)
@@ -357,6 +351,28 @@ func (c *ConfigMap) GetByName(name string) (*corev1.ConfigMap, error) {
 // get configmap by name
 func (c *ConfigMap) Get(name string) (*corev1.ConfigMap, error) {
 	return c.GetByName(name)
+}
+
+// list configmaps by labels
+func (c *ConfigMap) ListByLabel(labels string) (*corev1.ConfigMapList, error) {
+	listOptions := c.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return c.clientset.CoreV1().ConfigMaps(c.namespace).List(c.ctx, *listOptions)
+}
+
+// list configmaps by labels, alias to "ListByLabel"
+func (c *ConfigMap) List(labels string) (*corev1.ConfigMapList, error) {
+	return c.ListByLabel(labels)
+}
+
+// list configmaps by namespace
+func (c *ConfigMap) ListByNamespace(namespace string) (*corev1.ConfigMapList, error) {
+	return c.WithNamespace(namespace).ListByLabel("")
+}
+
+// list all configmaps in the k8s cluster
+func (c *ConfigMap) ListAll() (*corev1.ConfigMapList, error) {
+	return c.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // get configmap .spec.data

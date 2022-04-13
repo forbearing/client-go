@@ -351,10 +351,26 @@ func (s *ServiceAccount) Get(name string) (*corev1.ServiceAccount, error) {
 	return s.GetByName(name)
 }
 
-// list serviceaccount by labelSelector
-func (s *ServiceAccount) List(labelSelector string) (*corev1.ServiceAccountList, error) {
-	s.Options.ListOptions.LabelSelector = labelSelector
-	return s.clientset.CoreV1().ServiceAccounts(s.namespace).List(s.ctx, s.Options.ListOptions)
+// ListByLabel list serviceaccounts by labels
+func (s *ServiceAccount) ListByLabel(labels string) (*corev1.ServiceAccountList, error) {
+	listOptions := s.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return s.clientset.CoreV1().ServiceAccounts(s.namespace).List(s.ctx, *listOptions)
+}
+
+// List list serviceaccounts by labels, alias to "ListByLabel"
+func (s *ServiceAccount) List(labels string) (*corev1.ServiceAccountList, error) {
+	return s.ListByLabel(labels)
+}
+
+// ListByNamespace list serviceaccounts by namespace
+func (s *ServiceAccount) ListByNamespace(namespace string) (*corev1.ServiceAccountList, error) {
+	return s.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all serviceaccounts in the k8s cluster
+func (s *ServiceAccount) ListAll(namespace string) (*corev1.ServiceAccountList, error) {
+	return s.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // watch serviceaccounts by name

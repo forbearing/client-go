@@ -349,13 +349,29 @@ func (n *NetworkPolicy) Get(name string) (*networkingv1.NetworkPolicy, error) {
 	return n.GetByName(name)
 }
 
-// list networkpolicys by labelSelector
-func (n *NetworkPolicy) List(labelSelector string) (*networkingv1.NetworkPolicyList, error) {
-	n.Options.ListOptions.LabelSelector = labelSelector
-	return n.clientset.NetworkingV1().NetworkPolicies(n.namespace).List(n.ctx, n.Options.ListOptions)
+// ListByLabel list networkpolicies by labels
+func (n *NetworkPolicy) ListByLabel(labels string) (*networkingv1.NetworkPolicyList, error) {
+	listOptions := n.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return n.clientset.NetworkingV1().NetworkPolicies(n.namespace).List(n.ctx, *listOptions)
 }
 
-// watch networkpolicys by name
+// List list networkpolicies by labels, alias to "ListByLabel"
+func (n *NetworkPolicy) List(labels string) (*networkingv1.NetworkPolicyList, error) {
+	return n.ListByLabel(labels)
+}
+
+// ListByNamespace list networkpolicies by namespace
+func (n *NetworkPolicy) ListByNamespace(namespace string) (*networkingv1.NetworkPolicyList, error) {
+	return n.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all networkpolicies in the k8s cluster
+func (n *NetworkPolicy) ListAll() (*networkingv1.NetworkPolicyList, error) {
+	return n.WithNamespace(metav1.NamespaceAll).ListByLabel("")
+}
+
+// watch networkpolicyies by name
 func (n *NetworkPolicy) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -398,7 +414,7 @@ func (n *NetworkPolicy) WatchByName(name string,
 	}
 }
 
-// watch networkpolicys by labelSelector
+// watch networkpolicies by labelSelector
 func (n *NetworkPolicy) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -444,7 +460,7 @@ func (n *NetworkPolicy) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch networkpolicys by name, alias to "WatchByName"
+// watch networkpolicies by name, alias to "WatchByName"
 func (n *NetworkPolicy) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return n.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

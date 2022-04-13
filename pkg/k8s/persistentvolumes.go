@@ -267,12 +267,6 @@ func (p *PersistentVolume) Delete(name string) error {
 	return p.DeleteByName(name)
 }
 
-// list persistentvolume by labelSelector
-func (p *PersistentVolume) List(labelSelector string) (*corev1.PersistentVolumeList, error) {
-	p.Options.ListOptions.LabelSelector = labelSelector
-	return p.clientset.CoreV1().PersistentVolumes().List(p.ctx, p.Options.ListOptions)
-}
-
 // get persistentvolume from bytes
 func (p *PersistentVolume) GetFromBytes(data []byte) (*corev1.PersistentVolume, error) {
 	pvJson, err := yaml.ToJSON(data)
@@ -306,6 +300,23 @@ func (p *PersistentVolume) GetByName(name string) (*corev1.PersistentVolume, err
 // get persistentvolume by name, alias to "GetByName
 func (p *PersistentVolume) Get(name string) (*corev1.PersistentVolume, error) {
 	return p.GetByName(name)
+}
+
+// ListByLabel list persistentvolumes by labels
+func (p *PersistentVolume) ListByLabel(labels string) (*corev1.PersistentVolumeList, error) {
+	listOptions := p.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return p.clientset.CoreV1().PersistentVolumes().List(p.ctx, *listOptions)
+}
+
+// List list persistentvolumes by labels, alias to "ListByLabel"
+func (p *PersistentVolume) List(labels string) (*corev1.PersistentVolumeList, error) {
+	return p.ListByLabel(labels)
+}
+
+// ListAll list all persistentvolumes in the k8s cluster
+func (p *PersistentVolume) ListAll() (*corev1.PersistentVolumeList, error) {
+	return p.ListByLabel("")
 }
 
 // get the pvc name of the persistentvolume

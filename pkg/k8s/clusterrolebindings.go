@@ -304,10 +304,21 @@ func (c *ClusterRoleBinding) Get(name string) (*rbacv1.ClusterRoleBinding, error
 	return c.clientset.RbacV1().ClusterRoleBindings().Get(c.ctx, name, c.Options.GetOptions)
 }
 
-// list clusterrolebindings by labelSelector
-func (c *ClusterRoleBinding) List(labelSelector string) (*rbacv1.ClusterRoleBindingList, error) {
-	c.Options.ListOptions.LabelSelector = labelSelector
-	return c.clientset.RbacV1().ClusterRoleBindings().List(c.ctx, c.Options.ListOptions)
+// list clusterrolebindings by labels
+func (c *ClusterRoleBinding) ListByLabel(labels string) (*rbacv1.ClusterRoleBindingList, error) {
+	listOptions := c.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return c.clientset.RbacV1().ClusterRoleBindings().List(c.ctx, *listOptions)
+}
+
+// list clusterrolebindings by labels, alias to "ListByLabel"
+func (c *ClusterRoleBinding) List(labels string) (*rbacv1.ClusterRoleBindingList, error) {
+	return c.ListByLabel(labels)
+}
+
+// list all clusterrolebindings in the k8s cluster
+func (c *ClusterRoleBinding) ListAll() (*rbacv1.ClusterRoleBindingList, error) {
+	return c.ListByLabel("")
 }
 
 // watch clusterrolebindings by name

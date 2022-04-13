@@ -352,10 +352,26 @@ func (s *Service) Get(name string) (*corev1.Service, error) {
 	return s.GetByName(name)
 }
 
-// list service by labelSelector
-func (s *Service) List(labelSelector string) (*corev1.ServiceList, error) {
-	s.Options.ListOptions.LabelSelector = labelSelector
-	return s.clientset.CoreV1().Services(s.namespace).List(s.ctx, s.Options.ListOptions)
+// ListByLabel list services by labels
+func (s *Service) ListByLabel(labels string) (*corev1.ServiceList, error) {
+	listOptions := s.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return s.clientset.CoreV1().Services(s.namespace).List(s.ctx, *listOptions)
+}
+
+// List list services by labels, alias to "ListByLabel"
+func (s *Service) List(labels string) (*corev1.ServiceList, error) {
+	return s.ListByLabel(labels)
+}
+
+// ListByNamespace list services by labels, alias to "ListByLabel"
+func (s *Service) ListByNamespace(namespace string) (*corev1.ServiceList, error) {
+	return s.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all services in the k8s cluster
+func (s *Service) ListAll() (*corev1.ServiceList, error) {
+	return s.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // watch services by name

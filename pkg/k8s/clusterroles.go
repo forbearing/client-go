@@ -302,10 +302,21 @@ func (c *ClusterRole) Get(name string) (*rbacv1.ClusterRole, error) {
 	return c.GetByName(name)
 }
 
-// list clusterroles by labelSelector
-func (c *ClusterRole) List(labelSelector string) (*rbacv1.ClusterRoleList, error) {
-	c.Options.ListOptions.LabelSelector = labelSelector
-	return c.clientset.RbacV1().ClusterRoles().List(c.ctx, c.Options.ListOptions)
+// list clusterroles by labels
+func (c *ClusterRole) ListByLabel(labels string) (*rbacv1.ClusterRoleList, error) {
+	listOptions := c.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return c.clientset.RbacV1().ClusterRoles().List(c.ctx, *listOptions)
+}
+
+// list clusterroles by labels, alias to "ListByLabel"
+func (c *ClusterRole) List(labels string) (*rbacv1.ClusterRoleList, error) {
+	return c.ListByLabel(labels)
+}
+
+// list all clusterroles in the k8s cluster
+func (c *ClusterRole) ListAll(labels string) (*rbacv1.ClusterRoleList, error) {
+	return c.ListByLabel("")
 }
 
 // watch clusterroles by name

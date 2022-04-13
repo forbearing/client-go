@@ -315,11 +315,26 @@ func (r *ReplicationController) Delete(name string) error {
 	return r.DeleteByName(name)
 }
 
-// list replicationcontrollers by labelSelector
-func (r *ReplicationController) List(labelSelector string) (*corev1.ReplicationControllerList, error) {
-	// TODO: 合并 ListOptions
-	r.Options.ListOptions.LabelSelector = labelSelector
-	return r.clientset.CoreV1().ReplicationControllers(r.namespace).List(r.ctx, r.Options.ListOptions)
+// ListByLabel list replicationcontrollers by labels
+func (r *ReplicationController) ListByLabel(labels string) (*corev1.ReplicationControllerList, error) {
+	listOptions := r.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return r.clientset.CoreV1().ReplicationControllers(r.namespace).List(r.ctx, *listOptions)
+}
+
+// List list replicationcontrollers by labels, alias to "ListByLabel"
+func (r *ReplicationController) List(labels string) (*corev1.ReplicationControllerList, error) {
+	return r.ListByLabel(labels)
+}
+
+// ListByNamespace list replicationcontrollers by namespace
+func (r *ReplicationController) ListByNamespace(namespace string) (*corev1.ReplicationControllerList, error) {
+	return r.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all replicationcontrollers in the k8s cluster
+func (r *ReplicationController) ListAll() (*corev1.ReplicationControllerList, error) {
+	return r.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // get replicationcontroller from bytes

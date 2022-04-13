@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -33,6 +34,24 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
+type Container struct {
+	Name  string
+	Image string
+}
+type PodController struct {
+	//APIVersion        string            `json:"apiVersion"`
+	//Kind              string            `json:"kind"`
+	//Name              string            `json:"name"`
+	//UID               string            `json:"uid"`
+	//Controller        bool              `json:"controller"`
+	//BlockOwnerDeletion    bool `json:"blockOwnerDeletion"`
+	Labels            map[string]string `json:"labels"`
+	Ready             string            `json:"ready"`
+	Images            []string          `json:"images"`
+	CreationTimestamp metav1.Time       `json:"creationTimestamp"`
+
+	metav1.OwnerReference `json:"ownerReference"`
+}
 type Pod struct {
 	kubeconfig string
 	namespace  string
@@ -326,13 +345,6 @@ func (p *Pod) Delete(name string) error {
 	return p.DeleteByName(name)
 }
 
-// list pods by labelSelector
-func (p *Pod) List(labelSelector string) (*corev1.PodList, error) {
-	// TODO: 合并 ListOptions
-	p.Options.ListOptions.LabelSelector = labelSelector
-	return p.clientset.CoreV1().Pods(p.namespace).List(p.ctx, p.Options.ListOptions)
-}
-
 // get pod from bytes
 func (p *Pod) GetFromBytes(data []byte) (*corev1.Pod, error) {
 	podJson, err := yaml.ToJSON(data)
@@ -372,6 +384,43 @@ func (p *Pod) GetByName(name string) (*corev1.Pod, error) {
 // get pod by name
 func (p *Pod) Get(name string) (pod *corev1.Pod, err error) {
 	return p.GetByName(name)
+}
+
+// ListByLabel list pods by labels
+func (p *Pod) ListByLabel(labels string) (*corev1.PodList, error) {
+	// TODO: 合并 ListOptions
+	listOptions := p.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return p.clientset.CoreV1().Pods(p.namespace).List(p.ctx, *listOptions)
+}
+
+// List list pods by labels, alias to "ListByLabel"
+func (p *Pod) List(labels string) (*corev1.PodList, error) {
+	return p.ListByLabel(labels)
+}
+
+// ListByNode list all pods in k8s node where the pod is running
+func (p *Pod) ListByNode(name string) (*corev1.PodList, error) {
+	// ParseSelector takes a string representing a selector and returns an
+	// object suitable for matching, or an error.
+	fieldSelector, err := fields.ParseSelector(fmt.Sprintf("spec.nodeName=%s", name))
+	if err != nil {
+		return nil, err
+	}
+	listOptions := p.Options.ListOptions.DeepCopy()
+	listOptions.FieldSelector = fieldSelector.String()
+
+	return p.clientset.CoreV1().Pods(metav1.NamespaceAll).List(p.ctx, *listOptions)
+}
+
+// ListByNamespace list all pods in the specified namespace
+func (p *Pod) ListByNamespace(namespace string) (*corev1.PodList, error) {
+	return p.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all pods in k8s cluster where the pod is running
+func (p *Pod) ListAll() (*corev1.PodList, error) {
+	return p.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // get pod ip
@@ -589,7 +638,8 @@ func (p *Pod) GetPVC(name string) (pvcList []string, err error) {
 	return
 }
 
-func (p *Pod) GetOwnerController(name string) ([]OwnerController, error) {
+// GetController returns a *PodController object by pod name if the controllee(pod) has a controller
+func (p *Pod) GetController(name string) (*PodController, error) {
 	var (
 		podHandler *Pod
 		stsHandler *StatefulSet
@@ -598,28 +648,29 @@ func (p *Pod) GetOwnerController(name string) ([]OwnerController, error) {
 		rsHandler  *ReplicaSet
 		rcHandler  *ReplicationController
 	)
-
+	if len(name) == 0 {
+		return nil, fmt.Errorf("not set the pod name")
+	}
 	pod, err := p.Get(name)
 	if err != nil {
 		return nil, err
 	}
+	// GetControllerOf returns a pointer to a copy of the controllerRef if controllee has a controller
+	ownerRef := metav1.GetControllerOf(pod)
+	if ownerRef == nil {
+		return nil, fmt.Errorf("the pod %q doesn't have controller", name)
+	}
+	oc := PodController{OwnerReference: *ownerRef}
+
+	// get containers image
 	containers, err := p.GetContainers(name)
 	if err != nil {
 		return nil, err
 	}
-
-	ownerRef := metav1.GetControllerOf(pod)
-	if ownerRef == nil {
-		return nil, nil
-	}
-
-	oc := OwnerController{
-		Kind: ownerRef.Kind,
-		Name: ownerRef.Name,
-	}
 	for _, c := range containers {
 		oc.Images = append(oc.Images, c.Image)
 	}
+
 	switch strings.ToLower(ownerRef.Kind) {
 	case ResourceKindPod:
 		var pod *corev1.Pod
@@ -691,7 +742,7 @@ func (p *Pod) GetOwnerController(name string) ([]OwnerController, error) {
 	default:
 		return nil, fmt.Errorf("unknown reference kind: %s", ownerRef.Kind)
 	}
-	return []OwnerController{oc}, nil
+	return &oc, nil
 }
 
 // check if the pod is ready

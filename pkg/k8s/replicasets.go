@@ -312,12 +312,6 @@ func (r *ReplicaSet) Delete(name string) error {
 	return r.DeleteByName(name)
 }
 
-// list replicaset by labelSelector
-func (r *ReplicaSet) List(labelSelector string) (*appsv1.ReplicaSetList, error) {
-	r.Options.ListOptions.LabelSelector = labelSelector
-	return r.clientset.AppsV1().ReplicaSets(r.namespace).List(r.ctx, r.Options.ListOptions)
-}
-
 // get replicaset from bytes
 func (r *ReplicaSet) GetFromBytes(data []byte) (*appsv1.ReplicaSet, error) {
 	dsJson, err := yaml.ToJSON(data)
@@ -358,6 +352,28 @@ func (r *ReplicaSet) GetByName(name string) (*appsv1.ReplicaSet, error) {
 // get replicaset by name, alias to "GetByName"
 func (r *ReplicaSet) Get(name string) (*appsv1.ReplicaSet, error) {
 	return r.GetByName(name)
+}
+
+// ListByLabel list replicasets by labels
+func (r *ReplicaSet) ListByLabel(labels string) (*appsv1.ReplicaSetList, error) {
+	listOptions := r.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return r.clientset.AppsV1().ReplicaSets(r.namespace).List(r.ctx, *listOptions)
+}
+
+// List list replicasets by labels, alias to "ListByLabel"
+func (r *ReplicaSet) List(labels string) (*appsv1.ReplicaSetList, error) {
+	return r.ListByLabel(labels)
+}
+
+// ListByNamespace list replicasets by namespace
+func (r *ReplicaSet) ListByNamespace(namespace string) (*appsv1.ReplicaSetList, error) {
+	return r.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all replicasets in the k8s cluster
+func (r *ReplicaSet) ListAll() (*appsv1.ReplicaSetList, error) {
+	return r.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // get replicaset all pods

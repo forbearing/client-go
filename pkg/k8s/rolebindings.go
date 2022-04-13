@@ -349,10 +349,26 @@ func (r *RoleBinding) Get(name string) (*rbacv1.RoleBinding, error) {
 	return r.GetByName(name)
 }
 
-// list rolebindings by labelSelector
-func (r *RoleBinding) List(labelSelector string) (*rbacv1.RoleBindingList, error) {
-	r.Options.ListOptions.LabelSelector = labelSelector
-	return r.clientset.RbacV1().RoleBindings(r.namespace).List(r.ctx, r.Options.ListOptions)
+// ListByLabel list rolebindings by labels
+func (r *RoleBinding) ListByLabel(labels string) (*rbacv1.RoleBindingList, error) {
+	listOptions := r.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return r.clientset.RbacV1().RoleBindings(r.namespace).List(r.ctx, *listOptions)
+}
+
+// List list rolebindings by labels, alias to  "ListByLabel"
+func (r *RoleBinding) List(labels string) (*rbacv1.RoleBindingList, error) {
+	return r.ListByLabel(labels)
+}
+
+// ListByNamespace list rolebindings by namespace
+func (r *RoleBinding) ListByNamespace(namespace string) (*rbacv1.RoleBindingList, error) {
+	return r.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all rolebindings in the k8s cluster
+func (r *RoleBinding) ListAll() (*rbacv1.RoleBindingList, error) {
+	return r.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // watch rolebindings by name

@@ -303,10 +303,21 @@ func (n *Namespace) Get(name string) (*corev1.Namespace, error) {
 	return n.GetByName(name)
 }
 
-// list namespace by labelSelector
-func (n *Namespace) List(labelSelector string) (*corev1.NamespaceList, error) {
-	n.Options.ListOptions.LabelSelector = labelSelector
-	return n.clientset.CoreV1().Namespaces().List(n.ctx, n.Options.ListOptions)
+// ListByLabel list namespaces by labels
+func (n *Namespace) ListByLabel(labels string) (*corev1.NamespaceList, error) {
+	listOptions := n.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return n.clientset.CoreV1().Namespaces().List(n.ctx, *listOptions)
+}
+
+// List list namespaces by labels, alias to "ListByLabel"
+func (n *Namespace) List(labels string) (*corev1.NamespaceList, error) {
+	return n.ListByLabel(labels)
+}
+
+// ListAll list all namespaces in the k8s cluster
+func (n *Namespace) ListAll(labels string) (*corev1.NamespaceList, error) {
+	return n.ListByLabel("")
 }
 
 // watch namespace by name

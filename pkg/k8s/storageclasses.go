@@ -267,12 +267,6 @@ func (s *StorageClass) Delete(name string) error {
 	return s.DeleteByName(name)
 }
 
-// list storageclass by labelSelector
-func (s *StorageClass) List(labelSelector string) (*storagev1.StorageClassList, error) {
-	s.Options.ListOptions.LabelSelector = labelSelector
-	return s.clientset.StorageV1().StorageClasses().List(s.ctx, s.Options.ListOptions)
-}
-
 // get storageclass from bytes
 func (s *StorageClass) GetFromBytes(data []byte) (*storagev1.StorageClass, error) {
 	scJson, err := yaml.ToJSON(data)
@@ -306,6 +300,23 @@ func (s *StorageClass) GetByName(name string) (*storagev1.StorageClass, error) {
 // get storageclass by name, alias to "GetByName
 func (s *StorageClass) Get(name string) (*storagev1.StorageClass, error) {
 	return s.GetByName(name)
+}
+
+// ListByLabel list storageclasses by labels
+func (s *StorageClass) ListByLabel(labels string) (*storagev1.StorageClassList, error) {
+	listOptions := s.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return s.clientset.StorageV1().StorageClasses().List(s.ctx, *listOptions)
+}
+
+// List list storageclasses by labels, alias to "ListByLabel"
+func (s *StorageClass) List(labels string) (*storagev1.StorageClassList, error) {
+	return s.ListByLabel(labels)
+}
+
+// ListAll list all storageclasses in the k8s cluster
+func (s *StorageClass) ListAll() (*storagev1.StorageClassList, error) {
+	return s.ListByLabel("")
 }
 
 // watch storageclass by name

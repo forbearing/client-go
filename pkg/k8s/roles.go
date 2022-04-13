@@ -352,10 +352,26 @@ func (r *Role) Get(name string) (*rbacv1.Role, error) {
 	return r.GetByName(name)
 }
 
-// list roles by labelSelector
-func (r *Role) List(labelSelector string) (*rbacv1.RoleList, error) {
-	r.Options.ListOptions.LabelSelector = labelSelector
-	return r.clientset.RbacV1().Roles(r.namespace).List(r.ctx, r.Options.ListOptions)
+// ListByLabel list roles by labels
+func (r *Role) ListByLabel(labels string) (*rbacv1.RoleList, error) {
+	listOptions := r.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return r.clientset.RbacV1().Roles(r.namespace).List(r.ctx, *listOptions)
+}
+
+// List list roles by labels, alias to "ListByLabel"
+func (r *Role) List(labels string) (*rbacv1.RoleList, error) {
+	return r.ListByLabel(labels)
+}
+
+// ListByNamespace list roles by namespace
+func (r *Role) ListByNamespace(namespace string) (*rbacv1.RoleList, error) {
+	return r.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all roles in the k8s cluster
+func (r *Role) ListAll() (*rbacv1.RoleList, error) {
+	return r.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // watch roles by name

@@ -304,10 +304,21 @@ func (i *IngressClass) Get(name string) (*networkingv1.IngressClass, error) {
 	return i.clientset.NetworkingV1().IngressClasses().Get(i.ctx, name, i.Options.GetOptions)
 }
 
-// list ingressclass by labelSelector
-func (i *IngressClass) List(labelSelector string) (*networkingv1.IngressClassList, error) {
-	i.Options.ListOptions.LabelSelector = labelSelector
-	return i.clientset.NetworkingV1().IngressClasses().List(i.ctx, i.Options.ListOptions)
+// list ingressclasses by labels
+func (i *IngressClass) ListByLabel(labels string) (*networkingv1.IngressClassList, error) {
+	listOptions := i.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return i.clientset.NetworkingV1().IngressClasses().List(i.ctx, *listOptions)
+}
+
+// list ingressclasses by labels, alias to "ListByLabel"
+func (i *IngressClass) List(labels string) (*networkingv1.IngressClassList, error) {
+	return i.ListByLabel(labels)
+}
+
+// list all ingressclasses in the k8s cluster
+func (i *IngressClass) ListAll(labels string) (*networkingv1.IngressClassList, error) {
+	return i.ListByLabel("")
 }
 
 // watch ingressclass by name

@@ -312,12 +312,6 @@ func (s *StatefulSet) Delete(name string) error {
 	return s.DeleteByName(name)
 }
 
-// list statefulset by labelSelector
-func (s *StatefulSet) List(labelSelector string) (*appsv1.StatefulSetList, error) {
-	s.Options.ListOptions.LabelSelector = labelSelector
-	return s.clientset.AppsV1().StatefulSets(s.namespace).List(s.ctx, s.Options.ListOptions)
-}
-
 // get statefulset from bytes
 func (s *StatefulSet) GetFromBytes(data []byte) (*appsv1.StatefulSet, error) {
 	stsJson, err := yaml.ToJSON(data)
@@ -358,6 +352,29 @@ func (s *StatefulSet) GetByName(name string) (*appsv1.StatefulSet, error) {
 // get statefulset by name, alias to "GetByName"
 func (s *StatefulSet) Get(name string) (*appsv1.StatefulSet, error) {
 	return s.GetByName(name)
+}
+
+// ListByLabel list statefulsets by labels
+func (s *StatefulSet) ListByLabel(labels string) (*appsv1.StatefulSetList, error) {
+	s.Options.ListOptions.LabelSelector = labels
+	listOptions := s.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return s.clientset.AppsV1().StatefulSets(s.namespace).List(s.ctx, *listOptions)
+}
+
+// List list statefulsets by labels, alias to "ListByLabel
+func (s *StatefulSet) List(labels string) (*appsv1.StatefulSetList, error) {
+	return s.ListByLabel(labels)
+}
+
+// ListByNamespace list statefulsets by namespace
+func (s *StatefulSet) ListByNamespace(namespace string) (*appsv1.StatefulSetList, error) {
+	return s.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all statefulsets in the k8s cluster
+func (s *StatefulSet) ListAll() (*appsv1.StatefulSetList, error) {
+	return s.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // get statefulset all pod

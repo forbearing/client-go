@@ -475,12 +475,6 @@ func (d *Deployment) Delete(name string) error {
 	return d.DeleteByName(name)
 }
 
-// list deployment by label
-func (d *Deployment) List(labelSelector string) (*appsv1.DeploymentList, error) {
-	d.Options.ListOptions.LabelSelector = labelSelector
-	return d.clientset.AppsV1().Deployments(d.namespace).List(d.ctx, d.Options.ListOptions)
-}
-
 // get deployment from bytes
 func (d *Deployment) GetFromBytes(data []byte) (*appsv1.Deployment, error) {
 
@@ -522,6 +516,44 @@ func (d *Deployment) GetByName(name string) (*appsv1.Deployment, error) {
 // get deployment by name, alias to "GetByName"
 func (d *Deployment) Get(name string) (*appsv1.Deployment, error) {
 	return d.clientset.AppsV1().Deployments(d.namespace).Get(d.ctx, name, d.Options.GetOptions)
+}
+
+// ListByLabel list deployments by labels
+func (d *Deployment) ListByLabel(labels string) (*appsv1.DeploymentList, error) {
+	//d.Options.ListOptions.LabelSelector = labelSelector
+	listOptions := d.Options.ListOptions.DeepCopy()
+	listOptions.LabelSelector = labels
+	return d.clientset.AppsV1().Deployments(d.namespace).List(d.ctx, *listOptions)
+}
+
+// List list deployments by labels, alias to "ListByLabel"
+func (d *Deployment) List(label string) (*appsv1.DeploymentList, error) {
+	return d.ListByLabel(label)
+}
+
+//// ListByNode list deployments by k8s node name
+//// deployment not support list by k8s node name
+//func (d *Deployment) ListByNode(name string) (*appsv1.DeploymentList, error) {
+//    // ParseSelector takes a string representing a selector and returns an
+//    // object suitable for matching, or an error.
+//    fieldSelector, err := fields.ParseSelector(fmt.Sprintf("spec.nodeName=%s", name))
+//    if err != nil {
+//        return nil, err
+//    }
+//    listOptions := d.Options.ListOptions.DeepCopy()
+//    listOptions.FieldSelector = fieldSelector.String()
+
+//    return d.clientset.AppsV1().Deployments(metav1.NamespaceAll).List(d.ctx, *listOptions)
+//}
+
+// ListByNamespace list deployments in the specified namespace
+func (d *Deployment) ListByNamespace(namespace string) (*appsv1.DeploymentList, error) {
+	return d.WithNamespace(namespace).ListByLabel("")
+}
+
+// ListAll list all deployments in the k8s cluster
+func (d *Deployment) ListAll() (*appsv1.DeploymentList, error) {
+	return d.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
 // get deployment all pods
