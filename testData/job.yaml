@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: echo
+  labels:
+    job-name: echo
+spec:
+  #ttlSecondsAfterFinished: 100
+  #backoffLimit: 4
+  #completions: 1
+  #parallelism: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: echo
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - >
+          echo "hello job";
+          sleep 30
+          #exit 1
+        resources: {}
+      #volumes:
+      #- name: data
+      #  persistentVolumeClaim:
+      #    claimName: job-data
