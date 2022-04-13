@@ -10,7 +10,7 @@ import (
 
 func roleExamples() {
 	var (
-		filepath      = "./examples/role.yaml"
+		yamlfile      = "./testData/role.yaml"
 		name          = "test"
 		labelSelector = "type=role"
 		forceDelete   = false
@@ -19,7 +19,7 @@ func roleExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -27,26 +27,26 @@ func roleExamples() {
 
 	// 1. create role
 	role.Delete(name)
-	if s, err := role.Create(filepath); err != nil {
+	if s, err := role.Create(yamlfile); err != nil {
 		log.Error("create role failed")
 		log.Error(err)
 	} else {
 		log.Infof("create role %s success.", s.Name)
 	}
 	// 2. update role
-	if s, err := role.Update(filepath); err != nil {
+	if s, err := role.Update(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("update role %s success.", s.Name)
 	}
 	// 3. apply role
-	if s, err := role.Apply(filepath); err != nil {
+	if s, err := role.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("apply role %s success.", s.Name)
 	}
 	role.Delete(name)
-	if s, err := role.Apply(filepath); err != nil {
+	if s, err := role.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("apply role %s success.", s.Name)
@@ -59,7 +59,7 @@ func roleExamples() {
 		log.Infof("delete role %s success.", name)
 	}
 	// 5. get role
-	role.Create(filepath)
+	role.Create(yamlfile)
 	if s, err := role.Get(name); err != nil {
 		log.Error("get role failed")
 		log.Error(err)
@@ -82,7 +82,7 @@ func roleExamples() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			role.Apply(filepath)
+			role.Apply(yamlfile)
 		}
 	}()
 	go func() {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"hybfkuf/pkg/k8s"
+	"math/rand"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -9,118 +10,142 @@ import (
 
 func jobExamples() {
 	var (
-		filepath      = "./examples/job.yaml"
+		yamlfile      = "./testData/job.yaml"
 		name          = "echo"
 		labelSelector = "job-name=echo"
-		forceDelete   = false
 	)
-	job, err := k8s.NewJob(ctx, NAMESPACE, *kubeconfig)
+	jobHandler, err := k8s.NewJob(ctx, NAMESPACE, *kubeconfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
-	_ = forceDelete
-	_ = job
+	_ = jobHandler
 
 	// 1. create job
-	job.Delete(name)
-	time.Sleep(time.Second * 3)
-	if s, err := job.Create(filepath); err != nil {
+	jobHandler.SetPropagationPolicy("background")
+	jobHandler.SetForceDelete(true)
+	jobHandler.Delete(name)
+	time.Sleep(time.Second * 5)
+	if job, err := jobHandler.Create(yamlfile); err != nil {
 		log.Error("create job failed")
 		log.Error(err)
 	} else {
-		log.Infof("create job %s success.", s.Name)
+		log.Infof("create job %q success.", job.Name)
 	}
 	//// 2. update job
-	//if s, err := job.Update(filepath); err != nil {
+	//if job, err := jobHandler.Update(yamlfile); err != nil {
 	//    log.Error(err)
 	//} else {
-	//    log.Infof("update job %s success.", s.Name)
+	//    log.Infof("update job %q success.", job.Name)
 	//}
 	//// 3. apply job
-	//if s, err := job.Apply(filepath); err != nil {
+	//if job, err := jobHandler.Apply(yamlfile); err != nil {
 	//    log.Error(err)
 	//} else {
-	//    log.Infof("apply job %s success.", s.Name)
+	//    log.Infof("apply job %q success.", job.Name)
 	//}
-	//job.Delete(name, forceDelete)
-	//if s, err := job.Apply(filepath); err != nil {
+	//jobHandler.Delete(name, forceDelete)
+	//if job, err := jobHandler.Apply(yamlfile); err != nil {
 	//    log.Error(err)
 	//} else {
-	//    log.Infof("apply job %s success.", s.Name)
+	//    log.Infof("apply job %q success.", job.Name)
 	//}
 	// 4. delete job
-	if err := job.Delete(name); err != nil {
+	if err := jobHandler.Delete(name); err != nil {
 		log.Error("delete job failed")
 		log.Error(err)
 	} else {
-		log.Infof("delete job %s success.", name)
+		log.Infof("delete job %q success.", name)
 	}
-	time.Sleep(time.Second * 3)
-	// 5. get job
-	job.Create(filepath)
-	if s, err := job.Get(name); err != nil {
+	// 5. delete job from file
+	time.Sleep(time.Second * 5)
+	jobHandler.Apply(yamlfile)
+	if err := jobHandler.DeleteFromFile(yamlfile); err != nil {
+		log.Error("delete job from file failed")
+		log.Error(err)
+	} else {
+		log.Infof("delete job from file %q success.", name)
+	}
+	// 6. get job
+	jobHandler.Create(yamlfile)
+	if job, err := jobHandler.Get(name); err != nil {
 		log.Error("get job failed")
 		log.Error(err)
 	} else {
-		log.Infof("get job %s success.", s.Name)
+		log.Infof("get job %q success.", job.Name)
 	}
-	// 6. list job
-	if sl, err := job.List(labelSelector); err != nil {
+	// 7. list job
+	if jobList, err := jobHandler.List(labelSelector); err != nil {
 		log.Error("list job failed")
 		log.Error(err)
 	} else {
 		log.Info("list job success.")
-		for _, s := range sl.Items {
-			log.Info(s.Name)
+		for _, job := range jobList.Items {
+			log.Info(job.Name)
 		}
 	}
 
-	//// wait not active
+	// get job controller
+	name = "hello-27495875"
+	oc, err := jobHandler.GetController(name)
+	if err != nil {
+		log.Error("get job controller failed")
+		log.Error(err)
+	} else {
+		log.Info("get job controller success")
+		log.Info(oc.Name)
+		log.Info(oc.UID)
+		log.Info(oc.Labels)
+	}
+
 	//time.Sleep(time.Second * 5)
 	//log.Info("wait job not active")
-	//err = job.WaitNotActive(name)
+	//err = jobHandler.WaitNotActive(name)
 	//if err != nil {
 	//    log.Error(err)
 	//}
 	//log.Info("job is not active now")
 	// is active
+	name = "echo"
 	for {
-		if job.IsFinish(name) {
+		if jobHandler.IsFinish(name) {
 			log.Info("job is finished")
+			break
 		} else {
 			log.Info("job is not finised")
 		}
 		time.Sleep(time.Second)
 	}
-	//// 7. watch job
-	//log.Info("start watch job")
-	//go func() {
-	//    for {
-	//        rand.Seed(time.Now().UnixNano())
-	//        time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-	//        job.Apply(filepath)
-	//    }
-	//}()
-	//go func() {
-	//    for {
-	//        rand.Seed(time.Now().UnixNano())
-	//        //time.Sleep(time.Second * time.Duration(rand.Intn(15)))
-	//        time.Sleep(time.Second * 15)
-	//        job.Delete(name, forceDelete)
-	//    }
-	//}()
-	//job.Watch(name,
-	//    func() {
-	//        log.Info("add job.")
-	//    },
-	//    func() {
-	//        log.Info("modified job.")
-	//    },
-	//    func() {
-	//        log.Info("deleted job.")
-	//    },
-	//)
+
+	// 8. watch job
+	log.Info("start watch job")
+	go func() {
+		for {
+			rand.Seed(time.Now().UnixNano())
+			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
+			jobHandler.Apply(yamlfile)
+		}
+	}()
+	go func() {
+		for {
+			rand.Seed(time.Now().UnixNano())
+			//time.Sleep(time.Second * time.Duration(rand.Intn(15)))
+			time.Sleep(time.Second * 15)
+			jobHandler.Delete(name)
+		}
+	}()
+	jobHandler.Watch(name,
+		func(x interface{}) {
+			log.Info("added job.")
+		},
+		func(x interface{}) {
+			log.Info("modified job.")
+		},
+		func(x interface{}) {
+			log.Info("deleted job.")
+		},
+		nil,
+	)
 }

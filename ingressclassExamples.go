@@ -10,7 +10,7 @@ import (
 
 func ingressclassExamples() {
 	var (
-		filepath      = "./examples/ingressclass.yaml"
+		yamlfile      = "./testData/ingressclass.yaml"
 		name          = "test"
 		labelSelector = "type=ingressclass"
 		forceDelete   = false
@@ -19,7 +19,7 @@ func ingressclassExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -35,26 +35,26 @@ func ingressclassExamples() {
 
 	// 1. create ingressclass
 	ingressclass.Delete(name)
-	if s, err := ingressclass.Create(filepath); err != nil {
+	if s, err := ingressclass.Create(yamlfile); err != nil {
 		log.Error("create ingressclass failed")
 		log.Error(err)
 	} else {
 		log.Infof("create ingressclass %s success.", s.Name)
 	}
 	// 2. update ingressclass
-	if s, err := ingressclass.Update(filepath); err != nil {
+	if s, err := ingressclass.Update(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("update ingressclass %s success.", s.Name)
 	}
 	// 3. apply ingressclass
-	if s, err := ingressclass.Apply(filepath); err != nil {
+	if s, err := ingressclass.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("apply ingressclass %s success.", s.Name)
 	}
 	ingressclass.Delete(name)
-	if s, err := ingressclass.Apply(filepath); err != nil {
+	if s, err := ingressclass.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("apply ingressclass %s success.", s.Name)
@@ -67,7 +67,7 @@ func ingressclassExamples() {
 		log.Infof("delete ingressclass %s success.", name)
 	}
 	// 5. get ingressclass
-	ingressclass.Create(filepath)
+	ingressclass.Create(yamlfile)
 	if s, err := ingressclass.Get(name); err != nil {
 		log.Error("get ingressclass failed")
 		log.Error(err)
@@ -90,7 +90,7 @@ func ingressclassExamples() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			ingressclass.Apply(filepath)
+			ingressclass.Apply(yamlfile)
 		}
 	}()
 	go func() {

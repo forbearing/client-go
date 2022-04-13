@@ -8,7 +8,7 @@ import (
 
 func daemonsetExamples() {
 	var (
-		filepath      = "./examples/daemonset.yaml"
+		yamlfile      = "./testData/daemonset.yaml"
 		name          = "test"
 		labelSelector = "type=daemonset"
 		forceDelete   = false
@@ -17,7 +17,7 @@ func daemonsetExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -25,28 +25,28 @@ func daemonsetExamples() {
 
 	// 1. create daemonset
 	dsHandler.Delete(name)
-	if s, err := dsHandler.Create(filepath); err != nil {
+	if s, err := dsHandler.Create(yamlfile); err != nil {
 		log.Error("create daemonset failed")
 		log.Error(err)
 	} else {
 		log.Infof("create daemonset %s success.", s.Name)
 	}
 	// 2. update daemonset
-	if s, err := dsHandler.Update(filepath); err != nil {
+	if s, err := dsHandler.Update(yamlfile); err != nil {
 		log.Error("update daemonset failed")
 		log.Error(err)
 	} else {
 		log.Infof("update daemonset %s success.", s.Name)
 	}
 	// 3. apply daemonset
-	if s, err := dsHandler.Apply(filepath); err != nil {
+	if s, err := dsHandler.Apply(yamlfile); err != nil {
 		log.Error("apply daemonset failed")
 		log.Error(err)
 	} else {
 		log.Infof("apply daemonset %s success.", s.Name)
 	}
 	dsHandler.Delete(name)
-	if s, err := dsHandler.Apply(filepath); err != nil {
+	if s, err := dsHandler.Apply(yamlfile); err != nil {
 		log.Error("apply daemonset failed")
 		log.Error(err)
 	} else {
@@ -60,15 +60,15 @@ func daemonsetExamples() {
 		log.Infof("delete daemonset %s success.", name)
 	}
 	// delete daemonset from file
-	dsHandler.Apply(filepath)
-	if err := dsHandler.DeleteFromFile(filepath); err != nil {
+	dsHandler.Apply(yamlfile)
+	if err := dsHandler.DeleteFromFile(yamlfile); err != nil {
 		log.Error("delete daemonset from file failed")
 		log.Error(err)
 	} else {
 		log.Infof("delete daemonset %s from file success.", name)
 	}
 	// 5. get daemonset
-	dsHandler.Create(filepath)
+	dsHandler.Create(yamlfile)
 	if s, err := dsHandler.Get(name); err != nil {
 		log.Error("get daemonset failed")
 		log.Error(err)
@@ -99,7 +99,7 @@ func daemonsetExamples() {
 	//    for {
 	//        rand.Seed(time.Now().UnixNano())
 	//        time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-	//        dsHandler.Apply(filepath)
+	//        dsHandler.Apply(yamlfile)
 	//    }
 	//}()
 	//go func() {
@@ -124,8 +124,8 @@ func daemonsetExamples() {
 
 	dsHandler.Delete(name)
 	name = "nginx-ds"
-	filepath = "./examples/nginx-ds.yaml"
-	dsHandler.Apply(filepath)
+	yamlfile = "./testData/nginx-ds.yaml"
+	dsHandler.Apply(yamlfile)
 	if dsHandler.IsReady(name) {
 		log.Infof("daemonset %s is ready.", name)
 	} else {

@@ -26,13 +26,13 @@ var (
 )
 
 //func init() {
-//    flag.StringVar(&filePath, "path", "./examples/deployment.yaml", "yaml file path")
+//    flag.StringVar(&filePath, "path", "./testData/deployment.yaml", "yaml file path")
 //    flag.Parse()
 //}
 
 func applyExamples() {
-	//path := "./examples/deployment.yaml"
-	path := "./examples/all.yaml"
+	//path := "./testData/deployment.yaml"
+	path := "./testData/all.yaml"
 	_, err := apply(path)
 	if err != nil {
 		log.Error("apply failed")

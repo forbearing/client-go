@@ -6,101 +6,125 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	batchv1 "k8s.io/api/batch/v1"
 )
 
 func cronjobExamples() {
 	var (
-		filepath      = "./examples/cronjob.yaml"
+		yamlfile      = "./testData/cronjob.yaml"
 		name          = "hello"
 		labelSelector = "name=hello"
-		forceDelete   = false
+		jobs          []batchv1.Job
 	)
-	cronjob, err := k8s.NewCronJob(ctx, NAMESPACE, *kubeconfig)
+	cjHandler, err := k8s.NewCronJob(ctx, NAMESPACE, *kubeconfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
-	_ = forceDelete
-	_ = cronjob
+	_ = cjHandler
 
 	// 1. create cronjob
-	cronjob.Delete(name)
-	time.Sleep(time.Second * 3)
-	if s, err := cronjob.Create(filepath); err != nil {
+	cjHandler.Delete(name)
+	if cj, err := cjHandler.Create(yamlfile); err != nil {
 		log.Error("create cronjob failed")
 		log.Error(err)
 	} else {
-		log.Infof("create cronjob %s success.", s.Name)
+		log.Infof("create cronjob %q success.", cj.Name)
 	}
 	// 2. update cronjob
-	if s, err := cronjob.Update(filepath); err != nil {
+	if cj, err := cjHandler.Update(yamlfile); err != nil {
 		log.Error(err)
 	} else {
-		log.Infof("update cronjob %s success.", s.Name)
+		log.Infof("update cronjob %q success.", cj.Name)
 	}
 	// 3. apply cronjob
-	if s, err := cronjob.Apply(filepath); err != nil {
+	if cj, err := cjHandler.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
-		log.Infof("apply cronjob %s success.", s.Name)
+		log.Infof("apply cronjob %q success.", cj.Name)
 	}
-	cronjob.Delete(name)
-	if s, err := cronjob.Apply(filepath); err != nil {
+	cjHandler.Delete(name)
+	if cj, err := cjHandler.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
-		log.Infof("apply cronjob %s success.", s.Name)
+		log.Infof("apply cronjob %q success.", cj.Name)
 	}
 	// 4. delete cronjob
-	if err := cronjob.Delete(name); err != nil {
+	if err := cjHandler.Delete(name); err != nil {
 		log.Error("delete cronjob failed")
 		log.Error(err)
 	} else {
-		log.Infof("delete cronjob %s success.", name)
+		log.Infof("delete cronjob %q success.", name)
 	}
-	time.Sleep(time.Second * 3)
+	// 4. delete cronjob from file
+	cjHandler.Apply(yamlfile)
+	if err := cjHandler.DeleteFromFile(yamlfile); err != nil {
+		log.Error("delete cronjob from file failed")
+		log.Error(err)
+	} else {
+		log.Infof("delete cronjob %q from file success.", name)
+	}
 	// 5. get cronjob
-	cronjob.Create(filepath)
-	if s, err := cronjob.Get(name); err != nil {
+	cjHandler.Create(yamlfile)
+	if cj, err := cjHandler.Get(name); err != nil {
 		log.Error("get cronjob failed")
 		log.Error(err)
 	} else {
-		log.Infof("get cronjob %s success.", s.Name)
+		log.Infof("get cronjob %q success.", cj.Name)
 	}
 	// 6. list cronjob
-	if sl, err := cronjob.List(labelSelector); err != nil {
+	if cjList, err := cjHandler.List(labelSelector); err != nil {
 		log.Error("list cronjob failed")
 		log.Error(err)
 	} else {
 		log.Info("list cronjob success.")
-		for _, s := range sl.Items {
-			log.Info(s.Name)
+		for _, cj := range cjList.Items {
+			log.Info(cj.Name)
 		}
 	}
-	// 7. watch cronjob
+
+	// 7. get cronjob details
+	log.Info()
+	getJobs := func() {
+		if jobs, err = cjHandler.GetJobs(name); err != nil {
+			log.Error("get cronjob generated job failed")
+			log.Error(err)
+		} else {
+			log.Infof("get cronjob %q generated job success.", name)
+			for _, job := range jobs {
+				log.Info(job.Name)
+			}
+		}
+	}
+	getJobs()
+
+	// 8. watch cronjob
+	log.Info()
 	log.Info("start watch cronjob")
 	go func() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			cronjob.Apply(filepath)
+			cjHandler.Apply(yamlfile)
 		}
 	}()
 	go func() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			//time.Sleep(time.Second * time.Duration(rand.Intn(15)))
-			time.Sleep(time.Second * 125)
-			cronjob.Delete(name)
+			time.Sleep(time.Second * 390)
+			cjHandler.Delete(name)
 		}
 	}()
-	cronjob.Watch(name,
+	cjHandler.Watch(name,
 		func(x interface{}) {
-			log.Info("add cronjob.")
+			log.Info("added cronjob.")
 		},
 		func(x interface{}) {
 			log.Info("modified cronjob.")
+			getJobs()
 		},
 		func(x interface{}) {
 			log.Info("deleted cronjob.")

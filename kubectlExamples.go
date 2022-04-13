@@ -10,18 +10,18 @@ import (
 func kubectl() {
 	log.SetLevel(log.DebugLevel)
 	var (
-		filepath = "./examples/all.yaml"
-		//filepath = "./examples/nginx-sts.yaml"
+		yamlfile = "./testData/all.yaml"
+		//yamlfile = "./testData/nginx-sts.yaml"
 		err error
 	)
-	err = k8s.ApplyF(ctx, *kubeconfig, filepath)
+	err = k8s.ApplyF(ctx, *kubeconfig, yamlfile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	time.Sleep(time.Second * 30)
 	log.Info()
-	err = k8s.DeleteF(ctx, *kubeconfig, filepath)
+	err = k8s.DeleteF(ctx, *kubeconfig, yamlfile)
 	if err != nil {
 		log.Fatal(err)
 	}

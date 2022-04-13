@@ -8,7 +8,7 @@ import (
 
 func statefulsetExamples() {
 	var (
-		filepath      = "./examples/statefulset.yaml"
+		yamlfile      = "./testData/statefulset.yaml"
 		name          = "test"
 		labelSelector = "type=statefulset"
 		forceDelete   = false
@@ -17,7 +17,7 @@ func statefulsetExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -25,28 +25,28 @@ func statefulsetExamples() {
 
 	// 1. create statefulset
 	stsHandler.Delete(name)
-	if s, err := stsHandler.Create(filepath); err != nil {
+	if s, err := stsHandler.Create(yamlfile); err != nil {
 		log.Error("create statefulset failed")
 		log.Error(err)
 	} else {
 		log.Infof("create statefulset %s success.", s.Name)
 	}
 	// 2. update statefulset
-	if s, err := stsHandler.Update(filepath); err != nil {
+	if s, err := stsHandler.Update(yamlfile); err != nil {
 		log.Error("update statefulset failed")
 		log.Error(err)
 	} else {
 		log.Infof("update statefulset %s success.", s.Name)
 	}
 	// 3. apply statefulset
-	if s, err := stsHandler.Apply(filepath); err != nil {
+	if s, err := stsHandler.Apply(yamlfile); err != nil {
 		log.Error("apply statefulset failed")
 		log.Error(err)
 	} else {
 		log.Infof("apply statefulset %s success.", s.Name)
 	}
 	stsHandler.Delete(name)
-	if s, err := stsHandler.Apply(filepath); err != nil {
+	if s, err := stsHandler.Apply(yamlfile); err != nil {
 		log.Error("apply statefulset failed")
 		log.Error(err)
 	} else {
@@ -60,15 +60,15 @@ func statefulsetExamples() {
 		log.Infof("delete statefulset %s success.", name)
 	}
 	// delete statefulset from file
-	stsHandler.Apply(filepath)
-	if err := stsHandler.DeleteFromFile(filepath); err != nil {
+	stsHandler.Apply(yamlfile)
+	if err := stsHandler.DeleteFromFile(yamlfile); err != nil {
 		log.Error("delete statefulset from file failed")
 		log.Error(err)
 	} else {
 		log.Infof("delete statefulset %s from file success.", name)
 	}
 	// 5. get statefulset
-	stsHandler.Create(filepath)
+	stsHandler.Create(yamlfile)
 	if s, err := stsHandler.Get(name); err != nil {
 		log.Error("get statefulset failed")
 		log.Error(err)
@@ -99,7 +99,7 @@ func statefulsetExamples() {
 	//    for {
 	//        rand.Seed(time.Now().UnixNano())
 	//        time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-	//        stsHandler.Apply(filepath)
+	//        stsHandler.Apply(yamlfile)
 	//    }
 	//}()
 	//go func() {
@@ -124,8 +124,8 @@ func statefulsetExamples() {
 
 	stsHandler.Delete(name)
 	name = "nginx-sts"
-	filepath = "./examples/nginx-sts.yaml"
-	stsHandler.Apply(filepath)
+	yamlfile = "./testData/nginx-sts.yaml"
+	stsHandler.Apply(yamlfile)
 
 	if stsHandler.IsReady(name) {
 		log.Info("statefulset nginx-sts is ready.")

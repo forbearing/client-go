@@ -10,7 +10,7 @@ import (
 
 func namespaceExamples() {
 	var (
-		filepath      = "./examples/NAMESPACE.yaml"
+		yamlfile      = "./testData/NAMESPACE.yaml"
 		name          = "test1"
 		labelSelector = "type=NAMESPACE"
 		forceDelete   = false
@@ -19,7 +19,7 @@ func namespaceExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -27,28 +27,28 @@ func namespaceExamples() {
 
 	// 1. create namespace
 	namespace.Delete(name)
-	if s, err := namespace.Create(filepath); err != nil {
+	if s, err := namespace.Create(yamlfile); err != nil {
 		log.Error("create namespace failed")
 		log.Error(err)
 	} else {
 		log.Infof("create namespace %s success.", s.Name)
 	}
 	// 2. update namespace
-	if s, err := namespace.Update(filepath); err != nil {
+	if s, err := namespace.Update(yamlfile); err != nil {
 		log.Error("update namespace failed")
 		log.Error(err)
 	} else {
 		log.Infof("update namespace %s success.", s.Name)
 	}
 	// 3. apply namespace
-	if s, err := namespace.Apply(filepath); err != nil {
+	if s, err := namespace.Apply(yamlfile); err != nil {
 		log.Error("apply namespace failed")
 		log.Error(err)
 	} else {
 		log.Infof("apply namespace %s success.", s.Name)
 	}
 	namespace.Delete(name)
-	if s, err := namespace.Apply(filepath); err != nil {
+	if s, err := namespace.Apply(yamlfile); err != nil {
 		log.Error("apply namespace failed")
 		log.Error(err)
 	} else {
@@ -62,7 +62,7 @@ func namespaceExamples() {
 		log.Infof("delete namespace %s success.", name)
 	}
 	// 5. get namespace
-	namespace.Create(filepath)
+	namespace.Create(yamlfile)
 	if s, err := namespace.Get(name); err != nil {
 		log.Error("get namespace failed")
 		log.Error(err)
@@ -85,7 +85,7 @@ func namespaceExamples() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			namespace.Apply(filepath)
+			namespace.Apply(yamlfile)
 		}
 	}()
 	go func() {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"hybfkuf/pkg/k8s"
+	"math/rand"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -9,118 +10,122 @@ import (
 
 func podExamples() {
 	var (
-		filepath      = "./examples/pod.yaml"
+		yamlfile      = "./testData/pod.yaml"
 		name          = "test"
 		labelSelector = "type=pod"
-		forceDelete   = false
 	)
 	podHandler, err := k8s.NewPod(ctx, NAMESPACE, *kubeconfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
-	_ = forceDelete
 	_ = podHandler
 
 	// 1. create pod
 	podHandler.Delete(name)
 	time.Sleep(time.Second * 5)
-	if s, err := podHandler.Create(filepath); err != nil {
+	if pod, err := podHandler.Create(yamlfile); err != nil {
 		log.Error("create pod failed")
 		log.Error(err)
 	} else {
-		log.Infof("create pod %s success.", s.Name)
+		log.Infof("create pod %q success.", pod.Name)
 	}
 	//// 2. update pod
-	//if s, err := podHandler.Update(filepath); err != nil {
+	//if pod, err := podHandler.Update(yamlfile); err != nil {
 	//    log.Error(err)
 	//} else {
-	//    log.Infof("update pod %s success.", s.Name)
+	//    log.Infof("update pod %q success.", pod.Name)
 	//}
 	//// 3. apply pod
-	//if s, err := podHandler.Apply(filepath); err != nil {
+	//if pod, err := podHandler.Apply(yamlfile); err != nil {
 	//    log.Error(err)
 	//} else {
-	//    log.Infof("apply pod %s success.", s.Name)
+	//    log.Infof("apply pod %q success.", pod.Name)
 	//}
 	//podHandler.Delete(name)
-	//if s, err := podHandler.Apply(filepath); err != nil {
+	//if pod, err := podHandler.Apply(yamlfile); err != nil {
 	//    log.Error(err)
 	//} else {
-	//    log.Infof("apply pod %s success.", s.Name)
+	//    log.Infof("apply pod %q success.", pod.Name)
 	//}
 	// 4. delete pod
 	if err := podHandler.Delete(name); err != nil {
 		log.Error("delete pod failed")
 		log.Error(err)
 	} else {
-		log.Infof("delete pod %s success.", name)
+		log.Infof("delete pod %q success.", name)
 	}
 	time.Sleep(time.Second * 5)
-	podHandler.Create(filepath)
+	podHandler.Create(yamlfile)
 	time.Sleep(time.Second * 2)
 	// delete pod from file
-	if err := podHandler.DeleteFromFile(filepath); err != nil {
+	if err := podHandler.DeleteFromFile(yamlfile); err != nil {
 		log.Error("delete pod from file failed")
 		log.Error(err)
 	} else {
-		log.Infof("delete pod %s from file success.", name)
+		log.Infof("delete pod %q from file success.", name)
 	}
 	// 5. get pod
-	podHandler.Create(filepath)
-	if s, err := podHandler.Get(name); err != nil {
+	podHandler.Create(yamlfile)
+	if pod, err := podHandler.Get(name); err != nil {
 		log.Error("get pod failed")
 		log.Error(err)
 	} else {
-		log.Infof("get pod %s success.", s.Name)
+		log.Infof("get pod %q success.", pod.Name)
 	}
-	// 6. list pod
+	// 6. list pod by label
 	if sl, err := podHandler.List(labelSelector); err != nil {
 		log.Error("list pod failed")
 		log.Error(err)
 	} else {
 		log.Info("list pod success.")
-		for _, s := range sl.Items {
-			log.Info(s.Name)
+		for _, pod := range sl.Items {
+			log.Info(pod.Name)
 		}
 	}
-	//// 7. watch pod
-	//log.Info("start watch pod")
-	//go func() {
-	//    for {
-	//        rand.Seed(time.Now().UnixNano())
-	//        time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-	//        podHandler.Apply(filepath)
-	//    }
-	//}()
-	//go func() {
-	//    for {
-	//        rand.Seed(time.Now().UnixNano())
-	//        time.Sleep(time.Second * time.Duration(rand.Intn(10)))
-	//        //time.Sleep(time.Second * 125)
-	//        podHandler.Delete(name)
-	//    }
-	//}()
-	//podHandler.Watch(name,
-	//    func(x interface{}) {
-	//        log.Info("add podHandler.")
-	//    },
-	//    func(x interface{}) {
-	//        log.Info("modified podHandler.")
-	//    },
-	//    func(x interface{}) {
-	//        log.Info("deleted podHandler.")
-	//    },
-	//    nil,
-	//)
+	//  list all pods in namespace where the pod is running
+	log.Info()
+	if podList, err := podHandler.ListByNamespace(NAMESPACE); err != nil {
+		log.Error("list pod by namespace failed")
+		log.Error(err)
+	} else {
+		log.Info("list pod by namespace success.")
+		for _, pod := range podList.Items {
+			log.Info(pod.Name)
+		}
+	}
+	//  list al pods in k8s node where the pod is running
+	log.Info()
+	if podList, err := podHandler.ListByNode("d11-k8s-master1"); err != nil {
+		log.Error("list all pods by k8s node failed")
+		log.Error(err)
+	} else {
+		log.Info("list all pods by k8s node success.")
+		for _, pod := range podList.Items {
+			log.Info(pod.Name)
+		}
+	}
 
-	podHandler.Delete(name)
+	//  list all pod in k8s cluster where the pod is running
+	log.Info()
+	if podList, err := podHandler.ListAll(); err != nil {
+		log.Error("list all pods failed")
+		log.Error(err)
+	} else {
+		log.Info("list all pods success.")
+		for _, pod := range podList.Items {
+			log.Info(pod.Name)
+		}
+	}
+
+	// 7 get pod details
+	log.Info()
 	name = "nginx-pod"
 	labelSelector = "app=nginx-pod"
-	filepath = "./examples/nginx-pod.yaml"
-	podHandler.Apply(filepath)
+	yamlfile = "./testData/nginx-pod.yaml"
+	podHandler.Apply(yamlfile)
 	// wait ready
 	ready := podHandler.IsReady(name)
 	if ready {
@@ -155,28 +160,28 @@ func podExamples() {
 	if err != nil {
 		log.Fatal(err)
 	} else {
-		log.Infof("pod ip: %s", ip)
+		log.Infof("pod ip: %q", ip)
 	}
 	// get pod uid
 	uid, err := podHandler.GetUID(name)
 	if err != nil {
 		log.Fatal(err)
 	} else {
-		log.Infof("pod uid: %s", uid)
+		log.Infof("pod uid: %q", uid)
 	}
 	// get pod node ip
 	nodeIP, err := podHandler.GetNodeIP(name)
 	if err != nil {
 		log.Fatal(err)
 	} else {
-		log.Infof("node ip: %s", nodeIP)
+		log.Infof("node ip: %q", nodeIP)
 	}
 	// get pod node name
 	nodeName, err := podHandler.GetNodeName(name)
 	if err != nil {
 		log.Fatal(err)
 	} else {
-		log.Infof("node name: %s", nodeName)
+		log.Infof("node name: %q", nodeName)
 	}
 	// get pod containers
 	containerList, err := podHandler.GetContainers(name)
@@ -202,10 +207,10 @@ func podExamples() {
 	// test WithDryRun
 	log.Info("test WithDryRun")
 	name = "test"
-	filepath = "./examples/pod.yaml"
+	yamlfile = "./testData/pod.yaml"
 	go func() {
 		for {
-			_, err := podHandler.Apply(filepath)
+			_, err := podHandler.Apply(yamlfile)
 			if err == nil {
 				return
 			}
@@ -223,7 +228,7 @@ func podExamples() {
 	//time.Sleep(time.Second * 5)
 	//podHandler.Delete(name)
 	//time.Sleep(time.Second * 5)
-	//if _, err := podHandler.WithDryRun().Create(filepath); err != nil {
+	//if _, err := podHandler.WithDryRun().Create(yamlfile); err != nil {
 	//    log.Error("dry run apply failed")
 	//    log.Error(err)
 	//} else {
@@ -252,19 +257,47 @@ func podExamples() {
 
 	// get owner references
 	name = "nginx-sts-0"
-	ocs, err := podHandler.GetOwnerController(name)
+	oc, err := podHandler.GetController(name)
 	if err != nil {
 		log.Error("get owner references failed")
 		log.Error(err)
 	} else {
 		log.Info("get owner references success.")
-		for _, oc := range ocs {
-			log.Info(oc.Kind)
-			log.Info(oc.Name)
-			log.Info(oc.Labels)
-			log.Info(oc.Ready)
-			log.Info(oc.Images)
-			log.Info(oc.CreationTimestamp)
-		}
+		log.Info(oc.Kind)
+		log.Info(oc.Name)
+		log.Info(oc.Labels)
+		log.Info(oc.Ready)
+		log.Info(oc.Images)
+		log.Info(oc.CreationTimestamp)
 	}
+
+	// 8. watch pod
+	log.Info("start watch pod")
+	go func() {
+		for {
+			rand.Seed(time.Now().UnixNano())
+			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
+			podHandler.Apply(yamlfile)
+		}
+	}()
+	go func() {
+		for {
+			rand.Seed(time.Now().UnixNano())
+			time.Sleep(time.Second * time.Duration(rand.Intn(10)))
+			//time.Sleep(time.Second * 125)
+			podHandler.Delete(name)
+		}
+	}()
+	podHandler.Watch(name,
+		func(x interface{}) {
+			log.Info("added podHandler.")
+		},
+		func(x interface{}) {
+			log.Info("modified podHandler.")
+		},
+		func(x interface{}) {
+			log.Info("deleted podHandler.")
+		},
+		nil,
+	)
 }

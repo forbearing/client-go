@@ -10,92 +10,97 @@ import (
 
 func clusterrolebindingExamples() {
 	var (
-		filepath      = "./examples/clusterrolebinding.yaml"
+		yamlfile      = "./testData/clusterrolebinding.yaml"
 		name          = "test"
 		labelSelector = "type=clusterrolebinding"
-		forceDelete   = false
 	)
-	clusterrolebinding, err := k8s.NewClusterRoleBinding(ctx, *kubeconfig)
+	crbHandler, err := k8s.NewClusterRoleBinding(ctx, *kubeconfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
-	_ = forceDelete
-	_ = clusterrolebinding
+	_ = crbHandler
 
 	// 1. create clusterrolebinding
-	clusterrolebinding.Delete(name)
-	if s, err := clusterrolebinding.Create(filepath); err != nil {
+	crbHandler.Delete(name)
+	if crb, err := crbHandler.Create(yamlfile); err != nil {
 		log.Error("create clusterrolebinding failed")
 		log.Error(err)
 	} else {
-		log.Infof("create clusterrolebinding %s success.", s.Name)
+		log.Infof("create clusterrolebinding %q success.", crb.Name)
 	}
 	// 2. update clusterrolebinding
-	if s, err := clusterrolebinding.Update(filepath); err != nil {
+	if crb, err := crbHandler.Update(yamlfile); err != nil {
 		log.Error(err)
 	} else {
-		log.Infof("update clusterrolebinding %s success.", s.Name)
+		log.Infof("update clusterrolebinding %q success.", crb.Name)
 	}
 	// 3. apply clusterrolebinding
-	if s, err := clusterrolebinding.Apply(filepath); err != nil {
+	if crb, err := crbHandler.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
-		log.Infof("apply clusterrolebinding %s success.", s.Name)
+		log.Infof("apply clusterrolebinding %q success.", crb.Name)
 	}
-	clusterrolebinding.Delete(name)
-	if s, err := clusterrolebinding.Apply(filepath); err != nil {
+	crbHandler.Delete(name)
+	if crb, err := crbHandler.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
-		log.Infof("apply clusterrolebinding %s success.", s.Name)
+		log.Infof("apply clusterrolebinding %q success.", crb.Name)
 	}
 	// 4. delete clusterrolebinding
-	if err := clusterrolebinding.Delete(name); err != nil {
+	if err := crbHandler.Delete(name); err != nil {
 		log.Error("delete clusterrolebinding failed")
 		log.Error(err)
 	} else {
-		log.Infof("delete clusterrolebinding %s success.", name)
+		log.Infof("delete clusterrolebinding %q success.", name)
 	}
-	// 5. get clusterrolebinding
-	clusterrolebinding.Create(filepath)
-	if s, err := clusterrolebinding.Get(name); err != nil {
+	// 5. delete clusterrolebinding from file
+	crbHandler.Apply(yamlfile)
+	if err := crbHandler.DeleteFromFile(yamlfile); err != nil {
+		log.Error("delete clusterrolebinding from file failed")
+		log.Error(err)
+	} else {
+		log.Infof("delete clusterrolebinding %q from file success.", name)
+	}
+	// 6. get clusterrolebinding
+	crbHandler.Create(yamlfile)
+	if crb, err := crbHandler.Get(name); err != nil {
 		log.Error("get clusterrolebinding failed")
 		log.Error(err)
 	} else {
-		log.Infof("get clusterrolebinding %s success.", s.Name)
+		log.Infof("get clusterrolebinding %q success.", crb.Name)
 	}
-	// 6. list clusterrolebinding
-	if sl, err := clusterrolebinding.List(labelSelector); err != nil {
+	// 7. list clusterrolebinding
+	if crbList, err := crbHandler.List(labelSelector); err != nil {
 		log.Error("list clusterrolebinding failed")
 		log.Error(err)
 	} else {
 		log.Info("list clusterrolebinding success.")
-		for _, s := range sl.Items {
-			log.Info(s.Name)
+		for _, crb := range crbList.Items {
+			log.Info(crb.Name)
 		}
 	}
-	// 7. watch clusterrolebinding
+	// 8. watch clusterrolebinding
 	log.Info("start watch clusterrolebinding")
 	go func() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			clusterrolebinding.Apply(filepath)
+			crbHandler.Apply(yamlfile)
 		}
 	}()
 	go func() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(10)))
-			//time.Sleep(time.Second * 125)
-			clusterrolebinding.Delete(name)
+			crbHandler.Delete(name)
 		}
 	}()
-	clusterrolebinding.Watch(name,
+	crbHandler.Watch(name,
 		func(x interface{}) {
-			log.Info("add clusterrolebinding.")
+			log.Info("added clusterrolebinding.")
 		},
 		func(x interface{}) {
 			log.Info("modified clusterrolebinding.")

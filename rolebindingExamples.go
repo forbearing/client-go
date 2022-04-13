@@ -10,7 +10,7 @@ import (
 
 func rolebindingExamples() {
 	var (
-		filepath      = "./examples/rolebinding.yaml"
+		yamlfile      = "./testData/rolebinding.yaml"
 		name          = "test"
 		labelSelector = "type=rolebinding"
 		forceDelete   = false
@@ -19,7 +19,7 @@ func rolebindingExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -27,26 +27,26 @@ func rolebindingExamples() {
 
 	// 1. create rolebinding
 	rolebinding.Delete(name)
-	if s, err := rolebinding.Create(filepath); err != nil {
+	if s, err := rolebinding.Create(yamlfile); err != nil {
 		log.Error("create rolebinding failed")
 		log.Error(err)
 	} else {
 		log.Infof("create rolebinding %s success.", s.Name)
 	}
 	// 2. update rolebinding
-	if s, err := rolebinding.Update(filepath); err != nil {
+	if s, err := rolebinding.Update(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("update rolebinding %s success.", s.Name)
 	}
 	// 3. apply rolebinding
-	if s, err := rolebinding.Apply(filepath); err != nil {
+	if s, err := rolebinding.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("apply rolebinding %s success.", s.Name)
 	}
 	rolebinding.Delete(name)
-	if s, err := rolebinding.Apply(filepath); err != nil {
+	if s, err := rolebinding.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("apply rolebinding %s success.", s.Name)
@@ -59,7 +59,7 @@ func rolebindingExamples() {
 		log.Infof("delete rolebinding %s success.", name)
 	}
 	// 5. get rolebinding
-	rolebinding.Create(filepath)
+	rolebinding.Create(yamlfile)
 	if s, err := rolebinding.Get(name); err != nil {
 		log.Error("get rolebinding failed")
 		log.Error(err)
@@ -82,7 +82,7 @@ func rolebindingExamples() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			rolebinding.Apply(filepath)
+			rolebinding.Apply(yamlfile)
 		}
 	}()
 	go func() {

@@ -10,7 +10,7 @@ import (
 
 func secretExamples() {
 	var (
-		filepath      = "./examples/secret.yaml"
+		yamlfile      = "./testData/secret.yaml"
 		name          = "test"
 		labelSelector = "type=secret"
 		forceDelete   = false
@@ -19,7 +19,7 @@ func secretExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -27,28 +27,28 @@ func secretExamples() {
 
 	// 1. create secret
 	secret.Delete(name)
-	if s, err := secret.Create(filepath); err != nil {
+	if s, err := secret.Create(yamlfile); err != nil {
 		log.Error("create secret failed")
 		log.Error(err)
 	} else {
 		log.Infof("create secret %s success.", s.Name)
 	}
 	// 2. update secret
-	if s, err := secret.Update(filepath); err != nil {
+	if s, err := secret.Update(yamlfile); err != nil {
 		log.Error("update secret failed")
 		log.Error(err)
 	} else {
 		log.Infof("update secret %s success.", s.Name)
 	}
 	// 3. apply secret
-	if s, err := secret.Apply(filepath); err != nil {
+	if s, err := secret.Apply(yamlfile); err != nil {
 		log.Error("apply secret failed")
 		log.Error(err)
 	} else {
 		log.Infof("apply secret %s success.", s.Name)
 	}
 	secret.Delete(name)
-	if s, err := secret.Apply(filepath); err != nil {
+	if s, err := secret.Apply(yamlfile); err != nil {
 		log.Error("apply secret failed")
 		log.Error(err)
 	} else {
@@ -62,7 +62,7 @@ func secretExamples() {
 		log.Infof("delete secret %s success.", name)
 	}
 	// 5. get secret
-	secret.Create(filepath)
+	secret.Create(yamlfile)
 	if s, err := secret.Get(name); err != nil {
 		log.Error("get secret failed")
 		log.Error(err)
@@ -85,7 +85,7 @@ func secretExamples() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			secret.Apply(filepath)
+			secret.Apply(yamlfile)
 		}
 	}()
 	go func() {

@@ -10,7 +10,7 @@ import (
 
 func networkpolicyExamples() {
 	var (
-		filepath      = "./examples/networkpolicy.yaml"
+		yamlfile      = "./testData/networkpolicy.yaml"
 		name          = "test"
 		labelSelector = "type=networkpolicy"
 		forceDelete   = false
@@ -19,7 +19,7 @@ func networkpolicyExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -27,26 +27,26 @@ func networkpolicyExamples() {
 
 	// 1. create networkpolicy
 	networkpolicy.Delete(name)
-	if s, err := networkpolicy.Create(filepath); err != nil {
+	if s, err := networkpolicy.Create(yamlfile); err != nil {
 		log.Error("create networkpolicy failed")
 		log.Error(err)
 	} else {
 		log.Infof("create networkpolicy %s success.", s.Name)
 	}
 	// 2. update networkpolicy
-	if s, err := networkpolicy.Update(filepath); err != nil {
+	if s, err := networkpolicy.Update(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("update networkpolicy %s success.", s.Name)
 	}
 	// 3. apply networkpolicy
-	if s, err := networkpolicy.Apply(filepath); err != nil {
+	if s, err := networkpolicy.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("apply networkpolicy %s success.", s.Name)
 	}
 	networkpolicy.Delete(name)
-	if s, err := networkpolicy.Apply(filepath); err != nil {
+	if s, err := networkpolicy.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
 		log.Infof("apply networkpolicy %s success.", s.Name)
@@ -59,7 +59,7 @@ func networkpolicyExamples() {
 		log.Infof("delete networkpolicy %s success.", name)
 	}
 	// 5. get networkpolicy
-	networkpolicy.Create(filepath)
+	networkpolicy.Create(yamlfile)
 	if s, err := networkpolicy.Get(name); err != nil {
 		log.Error("get networkpolicy failed")
 		log.Error(err)
@@ -82,7 +82,7 @@ func networkpolicyExamples() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			networkpolicy.Apply(filepath)
+			networkpolicy.Apply(yamlfile)
 		}
 	}()
 	go func() {

@@ -10,7 +10,7 @@ import (
 
 func serviceaccountExamples() {
 	var (
-		filepath      = "./examples/serviceaccount.yaml"
+		yamlfile      = "./testData/serviceaccount.yaml"
 		name          = "test"
 		labelSelector = "type=serviceaccount"
 		forceDelete   = false
@@ -19,7 +19,7 @@ func serviceaccountExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -27,28 +27,28 @@ func serviceaccountExamples() {
 
 	// 1. create serviceaccount
 	serviceaccount.Delete(name)
-	if s, err := serviceaccount.Create(filepath); err != nil {
+	if s, err := serviceaccount.Create(yamlfile); err != nil {
 		log.Error("create serviceaccount failed")
 		log.Error(err)
 	} else {
 		log.Infof("create serviceaccount %s success.", s.Name)
 	}
 	// 2. update serviceaccount
-	if s, err := serviceaccount.Update(filepath); err != nil {
+	if s, err := serviceaccount.Update(yamlfile); err != nil {
 		log.Error("update serviceaccount failed")
 		log.Error(err)
 	} else {
 		log.Infof("update serviceaccount %s success.", s.Name)
 	}
 	// 3. apply serviceaccount
-	if s, err := serviceaccount.Apply(filepath); err != nil {
+	if s, err := serviceaccount.Apply(yamlfile); err != nil {
 		log.Error("apply serviceaccount failed")
 		log.Error(err)
 	} else {
 		log.Infof("apply serviceaccount %s success.", s.Name)
 	}
 	serviceaccount.Delete(name)
-	if s, err := serviceaccount.Apply(filepath); err != nil {
+	if s, err := serviceaccount.Apply(yamlfile); err != nil {
 		log.Error("apply serviceaccount failed")
 		log.Error(err)
 	} else {
@@ -62,7 +62,7 @@ func serviceaccountExamples() {
 		log.Infof("delete serviceaccount %s success.", name)
 	}
 	// 5. get serviceaccount
-	serviceaccount.Create(filepath)
+	serviceaccount.Create(yamlfile)
 	if s, err := serviceaccount.Get(name); err != nil {
 		log.Error("get serviceaccount failed")
 		log.Error(err)
@@ -85,7 +85,7 @@ func serviceaccountExamples() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			serviceaccount.Apply(filepath)
+			serviceaccount.Apply(yamlfile)
 		}
 	}()
 	go func() {

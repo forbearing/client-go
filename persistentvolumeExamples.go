@@ -10,7 +10,7 @@ import (
 
 func persistentvolumeExamples() {
 	var (
-		filepath      = "./examples/persistentvolume.yaml"
+		yamlfile      = "./testData/persistentvolume.yaml"
 		name          = "test"
 		labelSelector = "type=persistentvolume"
 		forceDelete   = false
@@ -19,7 +19,7 @@ func persistentvolumeExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -28,21 +28,21 @@ func persistentvolumeExamples() {
 	// 1. create persistentvolume
 	persistentvolume.Delete(name)
 	time.Sleep(time.Second * 5)
-	if s, err := persistentvolume.Create(filepath); err != nil {
+	if s, err := persistentvolume.Create(yamlfile); err != nil {
 		log.Error("create persistentvolume failed")
 		log.Error(err)
 	} else {
 		log.Infof("create persistentvolume %s success.", s.Name)
 	}
 	// 2. update persistentvolume
-	if s, err := persistentvolume.Update(filepath); err != nil {
+	if s, err := persistentvolume.Update(yamlfile); err != nil {
 		log.Error("update persistentvolume failed")
 		log.Error(err)
 	} else {
 		log.Infof("update persistentvolume %s success.", s.Name)
 	}
 	// 3. apply persistentvolume
-	if s, err := persistentvolume.Apply(filepath); err != nil {
+	if s, err := persistentvolume.Apply(yamlfile); err != nil {
 		log.Error("apply persistentvolume failed")
 		log.Error(err)
 	} else {
@@ -50,7 +50,7 @@ func persistentvolumeExamples() {
 	}
 	persistentvolume.Delete(name)
 	time.Sleep(time.Second * 5)
-	if s, err := persistentvolume.Apply(filepath); err != nil {
+	if s, err := persistentvolume.Apply(yamlfile); err != nil {
 		log.Error("apply persistentvolume failed")
 		log.Error(err)
 	} else {
@@ -65,7 +65,7 @@ func persistentvolumeExamples() {
 	}
 	// 5. get persistentvolume
 	time.Sleep(time.Second * 5)
-	persistentvolume.Create(filepath)
+	persistentvolume.Create(yamlfile)
 	if s, err := persistentvolume.Get(name); err != nil {
 		log.Error("get persistentvolume failed")
 		log.Error(err)
@@ -88,7 +88,7 @@ func persistentvolumeExamples() {
 	//    for {
 	//        rand.Seed(time.Now().UnixNano())
 	//        time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-	//        persistentvolume.Apply(filepath)
+	//        persistentvolume.Apply(yamlfile)
 	//    }
 	//}()
 	//go func() {

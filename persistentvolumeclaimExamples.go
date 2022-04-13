@@ -9,7 +9,7 @@ import (
 
 func persistentvolumeclaimExamples() {
 	var (
-		filepath      = "./examples/persistentvolumeclaim.yaml"
+		yamlfile      = "./testData/persistentvolumeclaim.yaml"
 		name          = "test"
 		labelSelector = "type=persistentvolumeclaim"
 		forceDelete   = false
@@ -18,7 +18,7 @@ func persistentvolumeclaimExamples() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
 	_ = forceDelete
@@ -26,28 +26,28 @@ func persistentvolumeclaimExamples() {
 
 	// 1. create persistentvolumeclaim
 	persistentvolumeclaim.Delete(name)
-	if s, err := persistentvolumeclaim.Create(filepath); err != nil {
+	if s, err := persistentvolumeclaim.Create(yamlfile); err != nil {
 		log.Error("create persistentvolumeclaim failed")
 		log.Error(err)
 	} else {
 		log.Infof("create persistentvolumeclaim %s success.", s.Name)
 	}
 	// 2. update persistentvolumeclaim
-	if s, err := persistentvolumeclaim.Update(filepath); err != nil {
+	if s, err := persistentvolumeclaim.Update(yamlfile); err != nil {
 		log.Error("update persistentvolumeclaim failed")
 		log.Error(err)
 	} else {
 		log.Infof("update persistentvolumeclaim %s success.", s.Name)
 	}
 	// 3. apply persistentvolumeclaim
-	if s, err := persistentvolumeclaim.Apply(filepath); err != nil {
+	if s, err := persistentvolumeclaim.Apply(yamlfile); err != nil {
 		log.Error("apply persistentvolumeclaim failed")
 		log.Error(err)
 	} else {
 		log.Infof("apply persistentvolumeclaim %s success.", s.Name)
 	}
 	persistentvolumeclaim.Delete(name)
-	if s, err := persistentvolumeclaim.Apply(filepath); err != nil {
+	if s, err := persistentvolumeclaim.Apply(yamlfile); err != nil {
 		log.Error("apply persistentvolumeclaim failed")
 		log.Error(err)
 	} else {
@@ -62,7 +62,7 @@ func persistentvolumeclaimExamples() {
 	}
 	// 5. get persistentvolumeclaim
 	time.Sleep(time.Second * 3)
-	persistentvolumeclaim.Create(filepath)
+	persistentvolumeclaim.Create(yamlfile)
 	time.Sleep(time.Second * 2)
 	if s, err := persistentvolumeclaim.Get(name); err != nil {
 		log.Error("get persistentvolumeclaim failed")
@@ -86,7 +86,7 @@ func persistentvolumeclaimExamples() {
 	//    for {
 	//        rand.Seed(time.Now().UnixNano())
 	//        time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-	//        persistentvolumeclaim.Apply(filepath)
+	//        persistentvolumeclaim.Apply(yamlfile)
 	//    }
 	//}()
 	//go func() {

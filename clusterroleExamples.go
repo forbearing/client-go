@@ -10,79 +10,85 @@ import (
 
 func clusterroleExamples() {
 	var (
-		filepath      = "./examples/clusterrole.yaml"
+		yamlfile      = "./testData/clusterrole.yaml"
 		name          = "test"
 		labelSelector = "type=clusterrole"
-		forceDelete   = false
 	)
-	clusterrole, err := k8s.NewClusterRole(ctx, *kubeconfig)
+	crHandler, err := k8s.NewClusterRole(ctx, *kubeconfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
-	_ = forceDelete
-	_ = clusterrole
+	_ = crHandler
 
 	// 1. create clusterrole
-	clusterrole.Delete(name)
-	if s, err := clusterrole.Create(filepath); err != nil {
+	crHandler.Delete(name)
+	if cr, err := crHandler.Create(yamlfile); err != nil {
 		log.Error("create clusterrole failed")
 		log.Error(err)
 	} else {
-		log.Infof("create clusterrole %s success.", s.Name)
+		log.Infof("create clusterrole %q success.", cr.Name)
 	}
 	// 2. update clusterrole
-	if s, err := clusterrole.Update(filepath); err != nil {
+	if cr, err := crHandler.Update(yamlfile); err != nil {
 		log.Error(err)
 	} else {
-		log.Infof("update clusterrole %s success.", s.Name)
+		log.Infof("update clusterrole %q success.", cr.Name)
 	}
 	// 3. apply clusterrole
-	if s, err := clusterrole.Apply(filepath); err != nil {
+	if cr, err := crHandler.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
-		log.Infof("apply clusterrole %s success.", s.Name)
+		log.Infof("apply clusterrole %q success.", cr.Name)
 	}
-	clusterrole.Delete(name)
-	if s, err := clusterrole.Apply(filepath); err != nil {
+	crHandler.Delete(name)
+	if cr, err := crHandler.Apply(yamlfile); err != nil {
 		log.Error(err)
 	} else {
-		log.Infof("apply clusterrole %s success.", s.Name)
+		log.Infof("apply clusterrole %q success.", cr.Name)
 	}
 	// 4. delete clusterrole
-	if err := clusterrole.Delete(name); err != nil {
+	if err := crHandler.Delete(name); err != nil {
 		log.Error("delete clusterrole failed")
 		log.Error(err)
 	} else {
-		log.Infof("delete clusterrole %s success.", name)
+		log.Infof("delete clusterrole %q success.", name)
 	}
-	// 5. get clusterrole
-	clusterrole.Create(filepath)
-	if s, err := clusterrole.Get(name); err != nil {
+	// 5. delete clusterrole from file
+	crHandler.Apply(yamlfile)
+	if err := crHandler.DeleteFromFile(yamlfile); err != nil {
+		log.Error("delete clusterrole from file failed")
+		log.Error(err)
+	} else {
+		log.Infof("delete clusterrole %q from file success.", name)
+	}
+	// 6. get clusterrole
+	crHandler.Create(yamlfile)
+	if cr, err := crHandler.Get(name); err != nil {
 		log.Error("get clusterrole failed")
 		log.Error(err)
 	} else {
-		log.Infof("get clusterrole %s success.", s.Name)
+		log.Infof("get clusterrole %q success.", cr.Name)
 	}
-	// 6. list clusterrole
-	if sl, err := clusterrole.List(labelSelector); err != nil {
+	// 7. list clusterrole
+	if crList, err := crHandler.List(labelSelector); err != nil {
 		log.Error("list clusterrole failed")
 		log.Error(err)
 	} else {
 		log.Info("list clusterrole success.")
-		for _, s := range sl.Items {
-			log.Info(s.Name)
+		for _, cr := range crList.Items {
+			log.Info(cr.Name)
 		}
 	}
-	// 7. watch clusterrole
+	// 8. watch clusterrole
 	log.Info("start watch clusterrole")
 	go func() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			clusterrole.Apply(filepath)
+			crHandler.Apply(yamlfile)
 		}
 	}()
 	go func() {
@@ -90,12 +96,12 @@ func clusterroleExamples() {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(10)))
 			//time.Sleep(time.Second * 125)
-			clusterrole.Delete(name)
+			crHandler.Delete(name)
 		}
 	}()
-	clusterrole.Watch(name,
+	crHandler.Watch(name,
 		func(x interface{}) {
-			log.Info("add clusterrole.")
+			log.Info("added clusterrole.")
 		},
 		func(x interface{}) {
 			log.Info("modified clusterrole.")

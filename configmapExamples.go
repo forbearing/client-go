@@ -10,93 +10,101 @@ import (
 
 func configmapExamples() {
 	var (
-		filepath      = "./examples/configmap.yaml"
+		yamlfile      = "./testData/configmap.yaml"
 		name          = "test"
 		labelSelector = "type=configmap"
-		forceDelete   = false
 	)
-	configmap, err := k8s.NewConfigMap(ctx, NAMESPACE, *kubeconfig)
+	cmHandler, err := k8s.NewConfigMap(ctx, NAMESPACE, *kubeconfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = filepath
+	_ = yamlfile
 	_ = name
 	_ = labelSelector
-	_ = forceDelete
-	_ = configmap
+	_ = cmHandler
 
 	// 1. create configmap
-	configmap.Delete(name)
-	if s, err := configmap.Create(filepath); err != nil {
+	cmHandler.Delete(name)
+	if cm, err := cmHandler.Create(yamlfile); err != nil {
 		log.Error("create configmap failed")
 		log.Error(err)
 	} else {
-		log.Infof("create configmap %s success.", s.Name)
+		log.Infof("create configmap %q success.", cm.Name)
 	}
 	// 2. update configmap
-	if s, err := configmap.Update(filepath); err != nil {
+	if cm, err := cmHandler.Update(yamlfile); err != nil {
 		log.Error("update configmap failed")
 		log.Error(err)
 	} else {
-		log.Infof("update configmap %s success.", s.Name)
+		log.Infof("update configmap %q success.", cm.Name)
 	}
 	// 3. apply configmap
-	if s, err := configmap.Apply(filepath); err != nil {
+	if cm, err := cmHandler.Apply(yamlfile); err != nil {
 		log.Error("apply configmap failed")
 		log.Error(err)
 	} else {
-		log.Infof("apply configmap %s success.", s.Name)
+		log.Infof("apply configmap %q success.", cm.Name)
 	}
-	configmap.Delete(name)
-	if s, err := configmap.Apply(filepath); err != nil {
+	cmHandler.Delete(name)
+	if cm, err := cmHandler.Apply(yamlfile); err != nil {
 		log.Error("apply configmap failed")
 		log.Error(err)
 	} else {
-		log.Infof("apply configmap %s success.", s.Name)
+		log.Infof("apply configmap %q success.", cm.Name)
 	}
 	// 4. delete configmap
-	if err := configmap.Delete(name); err != nil {
+	if err := cmHandler.Delete(name); err != nil {
 		log.Error("delete configmap failed")
 		log.Error(err)
 	} else {
-		log.Infof("delete configmap %s success.", name)
+		log.Infof("delete configmap %q success.", name)
 	}
-	// 5. get configmap
-	configmap.Create(filepath)
-	if s, err := configmap.Get(name); err != nil {
+	// 5. delete configmap from file
+	cmHandler.Apply(yamlfile)
+	if err := cmHandler.DeleteFromFile(yamlfile); err != nil {
+		log.Error("delete configmap from file failed")
+		log.Error(err)
+	} else {
+		log.Infof("delete configmap %q from file success.", name)
+	}
+	// 6. get configmap
+	cmHandler.Create(yamlfile)
+	if cm, err := cmHandler.Get(name); err != nil {
 		log.Error("get configmap failed")
 		log.Error(err)
 	} else {
-		log.Infof("get configmap %s success.", s.Name)
+		log.Infof("get configmap %q success.", cm.Name)
 	}
-	// 6. list configmap
-	if sl, err := configmap.List(labelSelector); err != nil {
+	// 7. list configmap
+	if cmList, err := cmHandler.List(labelSelector); err != nil {
 		log.Error("list configmap failed")
 		log.Error(err)
 	} else {
 		log.Info("list configmap success.")
-		for _, s := range sl.Items {
-			log.Info(s.Name)
+		for _, cm := range cmList.Items {
+			log.Info(cm.Name)
 		}
 	}
-	// 7 . get configmap data
-	if data, err := configmap.GetData(name); err != nil {
+
+	// 8. get configmap data
+	if data, err := cmHandler.GetData(name); err != nil {
 		log.Error("get configmap data failed")
 		log.Error(err)
 	} else {
 		log.Info("get configmap data success.")
 		for key, value := range data {
-			log.Infof("file name: %s", key)
-			log.Infof("file data:\n%s", value)
+			log.Infof("file name: %q", key)
+			log.Infof("file data: %q", value)
 		}
 	}
-	// 8. watch configmap
+
+	// 9. watch configmap
 	log.Info("start watch configmap")
 	go func() {
 		for {
 			rand.Seed(time.Now().UnixNano())
 			time.Sleep(time.Second * time.Duration(rand.Intn(5)))
-			configmap.Apply(filepath)
+			cmHandler.Apply(yamlfile)
 		}
 	}()
 	go func() {
@@ -104,18 +112,18 @@ func configmapExamples() {
 			rand.Seed(time.Now().UnixNano())
 			//time.Sleep(time.Second * time.Duration(rand.Intn(30)))
 			time.Sleep(time.Second * 10)
-			configmap.Delete(name)
+			cmHandler.Delete(name)
 		}
 	}()
-	configmap.Watch(name,
+	cmHandler.Watch(name,
 		func(x interface{}) {
-			log.Info("add configmap.")
+			log.Info("added cmHandler.")
 		},
 		func(x interface{}) {
-			log.Info("modified configmap.")
+			log.Info("modified cmHandler.")
 		},
 		func(x interface{}) {
-			log.Info("deleted configmap.")
+			log.Info("deleted cmHandler.")
 		},
 		nil,
 	)
