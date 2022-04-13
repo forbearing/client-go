@@ -21,6 +21,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -205,7 +206,25 @@ func (p *Pod) SetForceDelete(force bool) {
 	}
 }
 
-// create pod from bytes
+// CreateFromRaw create pod from map[string]interface{}
+func (p *Pod) CreateFromRaw(raw map[string]interface{}) (*corev1.Pod, error) {
+	pod := &corev1.Pod{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, pod)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(pod.Namespace) != 0 {
+		namespace = pod.Namespace
+	} else {
+		namespace = p.namespace
+	}
+
+	return p.clientset.CoreV1().Pods(namespace).Create(p.ctx, pod, p.Options.CreateOptions)
+}
+
+// CreateFromBytes create pod from bytes
 func (p *Pod) CreateFromBytes(data []byte) (*corev1.Pod, error) {
 	podJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -225,10 +244,17 @@ func (p *Pod) CreateFromBytes(data []byte) (*corev1.Pod, error) {
 		namespace = p.namespace
 	}
 
+	//unstructMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(pod)
+	//if err != nil {
+	//    log.Error("ToUnstructured error")
+	//    log.Error(err)
+	//} else {
+	//    log.Infof("%#v", unstructMap)
+	//}
 	return p.clientset.CoreV1().Pods(namespace).Create(p.ctx, pod, p.Options.CreateOptions)
 }
 
-// create pod from file
+// CreateFromFile create pod from yaml file
 func (p *Pod) CreateFromFile(path string) (*corev1.Pod, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -237,12 +263,30 @@ func (p *Pod) CreateFromFile(path string) (*corev1.Pod, error) {
 	return p.CreateFromBytes(data)
 }
 
-// create pod from file, alias to "CreateFromFile"
+// Create create pod from file, alias to "CreateFromFile"
 func (p *Pod) Create(path string) (*corev1.Pod, error) {
 	return p.CreateFromFile(path)
 }
 
-// update pod from bytes
+// UpdateFromRaw update pod from map[string]interface{}
+func (p *Pod) UpdateFromRaw(raw map[string]interface{}) (*corev1.Pod, error) {
+	pod := &corev1.Pod{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, pod)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(pod.Namespace) != 0 {
+		namespace = pod.Namespace
+	} else {
+		namespace = p.namespace
+	}
+
+	return p.clientset.CoreV1().Pods(namespace).Update(p.ctx, pod, p.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update pod from bytes
 func (p *Pod) UpdateFromBytes(data []byte) (*corev1.Pod, error) {
 	podJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -265,7 +309,7 @@ func (p *Pod) UpdateFromBytes(data []byte) (*corev1.Pod, error) {
 	return p.clientset.CoreV1().Pods(namespace).Update(p.ctx, pod, p.Options.UpdateOptions)
 }
 
-// update pod from file
+// UpdateFromFile update pod from yaml file
 func (p *Pod) UpdateFromFile(path string) (*corev1.Pod, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -274,12 +318,34 @@ func (p *Pod) UpdateFromFile(path string) (*corev1.Pod, error) {
 	return p.UpdateFromBytes(data)
 }
 
-// update pod from file, alias to "UpdateFromFile"
+// Update update pod from file, alias to "UpdateFromFile"
 func (p *Pod) Update(path string) (*corev1.Pod, error) {
 	return p.UpdateFromFile(path)
 }
 
-// apply pod from bytes
+// ApplyFromRaw apply pod from map[string]interface{}
+func (p *Pod) ApplyFromRaw(raw map[string]interface{}) (*corev1.Pod, error) {
+	pod := &corev1.Pod{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, pod)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(pod.Namespace) != 0 {
+		namespace = pod.Namespace
+	} else {
+		namespace = p.namespace
+	}
+
+	pod, err = p.clientset.CoreV1().Pods(namespace).Create(p.ctx, pod, p.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		pod, err = p.clientset.CoreV1().Pods(namespace).Update(p.ctx, pod, p.Options.UpdateOptions)
+	}
+	return pod, err
+}
+
+// ApplyFromBytes apply pod from bytes
 func (p *Pod) ApplyFromBytes(data []byte) (pod *corev1.Pod, err error) {
 	pod, err = p.CreateFromBytes(data)
 	if k8serrors.IsAlreadyExists(err) {
@@ -289,7 +355,7 @@ func (p *Pod) ApplyFromBytes(data []byte) (pod *corev1.Pod, err error) {
 	return
 }
 
-// apply pod from file
+// ApplyFromFile apply pod from yaml file
 func (p *Pod) ApplyFromFile(path string) (pod *corev1.Pod, err error) {
 	pod, err = p.CreateFromFile(path)
 	if k8serrors.IsAlreadyExists(err) {
@@ -298,12 +364,12 @@ func (p *Pod) ApplyFromFile(path string) (pod *corev1.Pod, err error) {
 	return
 }
 
-// apply pod from file, alias to "ApplyFromFile"
+// Apply apply pod from file, alias to "ApplyFromFile"
 func (p *Pod) Apply(path string) (*corev1.Pod, error) {
 	return p.ApplyFromFile(path)
 }
 
-// delete pod from bytes
+// DeleteFromBytes delete pod from bytes
 func (p *Pod) DeleteFromBytes(data []byte) error {
 	podJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -326,7 +392,7 @@ func (p *Pod) DeleteFromBytes(data []byte) error {
 	return p.WithNamespace(namespace).DeleteByName(pod.Name)
 }
 
-// delete pod from file
+// DeleteFromFile delete pod from yaml file
 func (p *Pod) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -335,17 +401,17 @@ func (p *Pod) DeleteFromFile(path string) error {
 	return p.DeleteFromBytes(data)
 }
 
-// delete pod by name
+// DeleteByName delete pod by name
 func (p *Pod) DeleteByName(name string) error {
 	return p.clientset.CoreV1().Pods(p.namespace).Delete(p.ctx, name, p.Options.DeleteOptions)
 }
 
-// delete pod by name, alias to "DeleteByName"
+// Delete delete pod by name, alias to "DeleteByName"
 func (p *Pod) Delete(name string) error {
 	return p.DeleteByName(name)
 }
 
-// get pod from bytes
+// GetFromBytes get pod from bytes
 func (p *Pod) GetFromBytes(data []byte) (*corev1.Pod, error) {
 	podJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -367,7 +433,7 @@ func (p *Pod) GetFromBytes(data []byte) (*corev1.Pod, error) {
 	return p.WithNamespace(namespace).GetByName(pod.Name)
 }
 
-// get pod from file
+// GetFromFile get pod from yaml file
 func (p *Pod) GetFromFile(path string) (*corev1.Pod, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -376,12 +442,12 @@ func (p *Pod) GetFromFile(path string) (*corev1.Pod, error) {
 	return p.GetFromBytes(data)
 }
 
-// get pod by name
+// GetByName get pod by name
 func (p *Pod) GetByName(name string) (*corev1.Pod, error) {
 	return p.clientset.CoreV1().Pods(p.namespace).Get(p.ctx, name, p.Options.GetOptions)
 }
 
-// get pod by name
+// Get get pod by name, alias to "GetByName"
 func (p *Pod) Get(name string) (pod *corev1.Pod, err error) {
 	return p.GetByName(name)
 }

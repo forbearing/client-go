@@ -83,7 +83,7 @@ func (in *MetricsHandler) DeepCopy() *MetricsHandler {
 	return out
 }
 
-// working with specific namespace
+// WithNamespace working with specific namespace
 func (m *MetricsHandler) WithNamespace(namespace string) *MetricsHandler {
 	metricsHandler := m.DeepCopy()
 	metricsHandler.namespace = namespace
@@ -134,7 +134,7 @@ func (m *MetricsHandler) Pod(name string) (*PodMetrics, error) {
 	return convertPodMetrics(podMetrics), nil
 }
 
-// Pods query multiple pod metrics by label
+// Pods query multiple pod metrics by labels
 func (m *MetricsHandler) Pods(label string) ([]PodMetrics, error) {
 	//podMetricsList, err := m.clientset.MetricsV1beta1.PodMetricses(m.namespace).List()
 	podMetricsList, err := m.clientset.MetricsV1beta1().PodMetricses(m.namespace).List(m.ctx, metav1.ListOptions{LabelSelector: label})

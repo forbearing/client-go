@@ -13,7 +13,9 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -210,7 +212,25 @@ func (j *Job) SetPropagationPolicy(policy string) {
 	}
 }
 
-// create job from bytes
+// CreateFromRaw create job from map[string]interface{}
+func (j *Job) CreateFromRaw(raw map[string]interface{}) (*batchv1.Job, error) {
+	job := &batchv1.Job{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, job)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(job.Namespace) != 0 {
+		namespace = job.Namespace
+	} else {
+		namespace = j.namespace
+	}
+
+	return j.clientset.BatchV1().Jobs(namespace).Create(j.ctx, job, j.Options.CreateOptions)
+}
+
+// CreateFromBytes create job from bytes
 func (j *Job) CreateFromBytes(data []byte) (*batchv1.Job, error) {
 	jobJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -233,7 +253,7 @@ func (j *Job) CreateFromBytes(data []byte) (*batchv1.Job, error) {
 	return j.clientset.BatchV1().Jobs(namespace).Create(j.ctx, job, j.Options.CreateOptions)
 }
 
-// create job from file
+// CreateFromFile create job from yaml file
 func (j *Job) CreateFromFile(path string) (*batchv1.Job, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -242,12 +262,30 @@ func (j *Job) CreateFromFile(path string) (*batchv1.Job, error) {
 	return j.CreateFromBytes(data)
 }
 
-// create job from file, alias to "CreateFromFile"
+// Create create job from yaml file, alias to "CreateFromFile"
 func (j *Job) Create(path string) (*batchv1.Job, error) {
 	return j.CreateFromFile(path)
 }
 
-// update job from bytes
+// UpdateFromRaw update job from map[string]interface{}
+func (j *Job) UpdateFromRaw(raw map[string]interface{}) (*batchv1.Job, error) {
+	job := &batchv1.Job{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, job)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(job.Namespace) != 0 {
+		namespace = job.Namespace
+	} else {
+		namespace = j.namespace
+	}
+
+	return j.clientset.BatchV1().Jobs(namespace).Update(j.ctx, job, j.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update job from bytes
 func (j *Job) UpdateFromBytes(data []byte) (*batchv1.Job, error) {
 	jobJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -270,7 +308,7 @@ func (j *Job) UpdateFromBytes(data []byte) (*batchv1.Job, error) {
 	return j.clientset.BatchV1().Jobs(namespace).Update(j.ctx, job, j.Options.UpdateOptions)
 }
 
-// update job from file
+// UpdateFromFile update job from yaml file
 func (j *Job) UpdateFromFile(path string) (*batchv1.Job, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -279,12 +317,34 @@ func (j *Job) UpdateFromFile(path string) (*batchv1.Job, error) {
 	return j.UpdateFromBytes(data)
 }
 
-// update job from file, alias to "UpdateFromFile"
+// Update update job from yaml file, alias to "UpdateFromFile"
 func (j *Job) Update(path string) (*batchv1.Job, error) {
 	return j.UpdateFromFile(path)
 }
 
-// apply job from bytes
+// ApplyFromRaw apply job from map[string]interface{}
+func (j *Job) ApplyFromRaw(raw map[string]interface{}) (*batchv1.Job, error) {
+	job := &batchv1.Job{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, job)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(job.Namespace) != 0 {
+		namespace = job.Namespace
+	} else {
+		namespace = j.namespace
+	}
+
+	job, err = j.clientset.BatchV1().Jobs(namespace).Create(j.ctx, job, j.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		job, err = j.clientset.BatchV1().Jobs(namespace).Update(j.ctx, job, j.Options.UpdateOptions)
+	}
+	return job, err
+}
+
+// ApplyFromBytes apply job from bytes
 func (j *Job) ApplyFromBytes(data []byte) (job *batchv1.Job, err error) {
 	job, err = j.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -293,7 +353,7 @@ func (j *Job) ApplyFromBytes(data []byte) (job *batchv1.Job, err error) {
 	return
 }
 
-// apply job from file
+// ApplyFromFile apply job from yaml file
 func (j *Job) ApplyFromFile(path string) (job *batchv1.Job, err error) {
 	job, err = j.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -302,12 +362,12 @@ func (j *Job) ApplyFromFile(path string) (job *batchv1.Job, err error) {
 	return
 }
 
-// apply job from file, alias to "ApplyFromFile"
+// Apply apply job from yaml file, alias to "ApplyFromFile"
 func (j *Job) Apply(path string) (*batchv1.Job, error) {
 	return j.ApplyFromFile(path)
 }
 
-// delete job from bytes
+// DeleteFromBytes delete job from bytes
 func (j *Job) DeleteFromBytes(data []byte) error {
 	jobJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -330,7 +390,7 @@ func (j *Job) DeleteFromBytes(data []byte) error {
 	return j.WithNamespace(namespace).DeleteByName(job.Name)
 }
 
-// delete job from file
+// DeleteFromFile delete job from yaml file
 func (j *Job) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -339,17 +399,17 @@ func (j *Job) DeleteFromFile(path string) error {
 	return j.DeleteFromBytes(data)
 }
 
-// delete job by name
+// DeleteByName delete job by name
 func (j *Job) DeleteByName(name string) error {
 	return j.clientset.BatchV1().Jobs(j.namespace).Delete(j.ctx, name, j.Options.DeleteOptions)
 }
 
-// delete job by name,alias to "DeleteByName"
+// Delete delete job by name,alias to "DeleteByName"
 func (j *Job) Delete(name string) error {
 	return j.DeleteByName(name)
 }
 
-// get job from bytes
+// GetFromBytes get job from bytes
 func (j *Job) GetFromBytes(data []byte) (*batchv1.Job, error) {
 	jobJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -372,7 +432,7 @@ func (j *Job) GetFromBytes(data []byte) (*batchv1.Job, error) {
 	return j.WithNamespace(namespace).GetByName(job.Name)
 }
 
-// get job from file
+// GetFromFile get job from yaml file
 func (j *Job) GetFromFile(path string) (*batchv1.Job, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -381,12 +441,12 @@ func (j *Job) GetFromFile(path string) (*batchv1.Job, error) {
 	return j.GetFromBytes(data)
 }
 
-// get job by name
+// GetByName get job by name
 func (j *Job) GetByName(name string) (*batchv1.Job, error) {
 	return j.clientset.BatchV1().Jobs(j.namespace).Get(j.ctx, name, j.Options.GetOptions)
 }
 
-// get job by name, alias to "GetByName"
+// Get get job by name, alias to "GetByName"
 func (j *Job) Get(name string) (*batchv1.Job, error) {
 	return j.GetByName(name)
 }
@@ -445,7 +505,7 @@ func (j *Job) GetController(name string) (*JobController, error) {
 	return &oc, nil
 }
 
-// check job if is completion
+// IsComplete check job if is completion
 func (j *Job) IsComplete(name string) bool {
 	// if job not exist, return false
 	job, err := j.Get(name)
@@ -462,7 +522,7 @@ func (j *Job) IsComplete(name string) bool {
 	return false
 }
 
-// check job if is condition is
+// IsFinish check job if is condition is
 // job finished means that the job condition is "complete" or "failed"
 func (j *Job) IsFinish(name string) bool {
 	// 1. job not exist, return true
@@ -484,7 +544,7 @@ func (j *Job) IsFinish(name string) bool {
 	return false
 }
 
-// wait job status to be "true"
+// WaitFinish wait job status to be "true"
 func (j *Job) WaitFinish(name string) (err error) {
 	var (
 		watcher watch.Interface
@@ -516,7 +576,7 @@ func (j *Job) WaitFinish(name string) (err error) {
 	}
 }
 
-// wait job not exist
+// WaitNotExist wait job not exist
 func (j *Job) WaitNotExist(name string) (err error) {
 	var (
 		watcher watch.Interface
@@ -549,7 +609,7 @@ func (j *Job) WaitNotExist(name string) (err error) {
 	}
 }
 
-// watch jobs by name
+// WatchByName watch jobs by name
 func (j *Job) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -592,7 +652,7 @@ func (j *Job) WatchByName(name string,
 	}
 }
 
-// watch jobs by labelSelector
+// WatchByLabel watch jobs by labelSelector
 func (j *Job) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -638,7 +698,7 @@ func (j *Job) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch jobs by name, alias to "WatchByName"
+// Watch watch jobs by name, alias to "WatchByName"
 func (j *Job) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return j.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -170,7 +172,25 @@ func (r *RoleBinding) SetForceDelete(force bool) {
 	}
 }
 
-// create rolebinding from bytes
+// CreateFromRaw create rolebinding from map[string]interface{}
+func (r *RoleBinding) CreateFromRaw(raw map[string]interface{}) (*rbacv1.RoleBinding, error) {
+	rolebinding := &rbacv1.RoleBinding{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, rolebinding)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(rolebinding.Namespace) != 0 {
+		namespace = rolebinding.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	return r.clientset.RbacV1().RoleBindings(namespace).Create(r.ctx, rolebinding, r.Options.CreateOptions)
+}
+
+// CreateFromBytes create rolebinding from bytes
 func (r *RoleBinding) CreateFromBytes(data []byte) (*rbacv1.RoleBinding, error) {
 
 	rolebindingJson, err := yaml.ToJSON(data)
@@ -194,7 +214,7 @@ func (r *RoleBinding) CreateFromBytes(data []byte) (*rbacv1.RoleBinding, error) 
 	return r.clientset.RbacV1().RoleBindings(namespace).Create(r.ctx, rolebinding, r.Options.CreateOptions)
 }
 
-// create rolebinding from file
+// CreateFromFile create rolebinding from yaml file
 func (r *RoleBinding) CreateFromFile(path string) (*rbacv1.RoleBinding, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -203,12 +223,30 @@ func (r *RoleBinding) CreateFromFile(path string) (*rbacv1.RoleBinding, error) {
 	return r.CreateFromBytes(data)
 }
 
-// create rolebinding from file, alias to "CreateFromFile"
+// Create create rolebinding from yaml file, alias to "CreateFromFile"
 func (r *RoleBinding) Create(path string) (*rbacv1.RoleBinding, error) {
 	return r.CreateFromFile(path)
 }
 
-// update rolebinding from bytes
+// UpdateFromRaw update rolebinding from map[string]interface{}
+func (r *RoleBinding) UpdateFromRaw(raw map[string]interface{}) (*rbacv1.RoleBinding, error) {
+	rolebinding := &rbacv1.RoleBinding{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, rolebinding)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(rolebinding.Namespace) != 0 {
+		namespace = rolebinding.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	return r.clientset.RbacV1().RoleBindings(namespace).Update(r.ctx, rolebinding, r.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update rolebinding from bytes
 func (r *RoleBinding) UpdateFromBytes(data []byte) (*rbacv1.RoleBinding, error) {
 	rolebindingJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -231,7 +269,7 @@ func (r *RoleBinding) UpdateFromBytes(data []byte) (*rbacv1.RoleBinding, error) 
 	return r.clientset.RbacV1().RoleBindings(namespace).Update(r.ctx, rolebinding, r.Options.UpdateOptions)
 }
 
-// update rolebinding from file
+// UpdateFromFile update rolebinding from yaml file
 func (r *RoleBinding) UpdateFromFile(path string) (*rbacv1.RoleBinding, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -240,12 +278,34 @@ func (r *RoleBinding) UpdateFromFile(path string) (*rbacv1.RoleBinding, error) {
 	return r.UpdateFromBytes(data)
 }
 
-// update rolebinding from file, alias to "UpdateFromFile"
+// Update update rolebinding from yaml file, alias to "UpdateFromFile"
 func (r *RoleBinding) Update(path string) (*rbacv1.RoleBinding, error) {
 	return r.UpdateFromFile(path)
 }
 
-// apply rolebinding from bytes
+// ApplyFromRaw apply rolebinding from map[string]interface{}
+func (r *RoleBinding) ApplyFromRaw(raw map[string]interface{}) (*rbacv1.RoleBinding, error) {
+	rolebinding := &rbacv1.RoleBinding{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, rolebinding)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(rolebinding.Namespace) != 0 {
+		namespace = rolebinding.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	rolebinding, err = r.clientset.RbacV1().RoleBindings(namespace).Create(r.ctx, rolebinding, r.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		rolebinding, err = r.clientset.RbacV1().RoleBindings(namespace).Update(r.ctx, rolebinding, r.Options.UpdateOptions)
+	}
+	return rolebinding, err
+}
+
+// ApplyFromBytes apply rolebinding from bytes
 func (r *RoleBinding) ApplyFromBytes(data []byte) (rolebinding *rbacv1.RoleBinding, err error) {
 	rolebinding, err = r.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -254,7 +314,7 @@ func (r *RoleBinding) ApplyFromBytes(data []byte) (rolebinding *rbacv1.RoleBindi
 	return
 }
 
-// apply rolebinding from file
+// ApplyFromFile apply rolebinding from yaml file
 func (r *RoleBinding) ApplyFromFile(path string) (rolebinding *rbacv1.RoleBinding, err error) {
 	rolebinding, err = r.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -263,12 +323,12 @@ func (r *RoleBinding) ApplyFromFile(path string) (rolebinding *rbacv1.RoleBindin
 	return
 }
 
-// apply rolebinding from file, alias to "ApplyFromFile"
+// Apply apply rolebinding from yaml file, alias to "ApplyFromFile"
 func (r *RoleBinding) Apply(path string) (*rbacv1.RoleBinding, error) {
 	return r.ApplyFromFile(path)
 }
 
-// delete rolebinding from bytes
+// DeleteFromBytes delete rolebinding from bytes
 func (r *RoleBinding) DeleteFromBytes(data []byte) error {
 	rolebindingJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -290,7 +350,7 @@ func (r *RoleBinding) DeleteFromBytes(data []byte) error {
 	return r.WithNamespace(namespace).DeleteByName(rolebinding.Name)
 }
 
-// delete rolebinding from file
+// DeleteFromFile delete rolebinding from yaml file
 func (r *RoleBinding) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -299,17 +359,17 @@ func (r *RoleBinding) DeleteFromFile(path string) error {
 	return r.DeleteFromBytes(data)
 }
 
-// delete rolebinding by name
+// DeleteByName delete rolebinding by name
 func (r *RoleBinding) DeleteByName(name string) error {
 	return r.clientset.RbacV1().RoleBindings(r.namespace).Delete(r.ctx, name, r.Options.DeleteOptions)
 }
 
-// delete rolebinding by name, alias to "DeleteByName"
+// Delete delete rolebinding by name, alias to "DeleteByName"
 func (r *RoleBinding) Delete(name string) (err error) {
 	return r.DeleteByName(name)
 }
 
-// get rolebinding from bytes
+// GetFromBytes get rolebinding from bytes
 func (r *RoleBinding) GetFromBytes(data []byte) (*rbacv1.RoleBinding, error) {
 	rolebindingJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -332,7 +392,7 @@ func (r *RoleBinding) GetFromBytes(data []byte) (*rbacv1.RoleBinding, error) {
 	return r.WithNamespace(namespace).GetByName(rolebinding.Name)
 }
 
-// get rolebinding from file
+// GetFromFile get rolebinding from yaml file
 func (r *RoleBinding) GetFromFile(path string) (*rbacv1.RoleBinding, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -341,7 +401,7 @@ func (r *RoleBinding) GetFromFile(path string) (*rbacv1.RoleBinding, error) {
 	return r.GetFromBytes(data)
 }
 
-// get rolebinding by name
+// GetByName get rolebinding by name
 func (r *RoleBinding) GetByName(name string) (*rbacv1.RoleBinding, error) {
 	return r.clientset.RbacV1().RoleBindings(r.namespace).Get(r.ctx, name, r.Options.GetOptions)
 }
@@ -371,7 +431,7 @@ func (r *RoleBinding) ListAll() (*rbacv1.RoleBindingList, error) {
 	return r.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// watch rolebindings by name
+// WatchByName watch rolebindings by name
 func (r *RoleBinding) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -414,7 +474,7 @@ func (r *RoleBinding) WatchByName(name string,
 	}
 }
 
-// watch rolebindings by labelSelector
+// WatchByLabel watch rolebindings by labelSelector
 func (r *RoleBinding) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -460,7 +520,7 @@ func (r *RoleBinding) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch rolebindings by name, alias to "WatchByName"
+// Watch watch rolebindings by name, alias to "WatchByName"
 func (r *RoleBinding) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return r.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

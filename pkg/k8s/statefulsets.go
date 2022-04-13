@@ -12,7 +12,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -173,7 +175,25 @@ func (s *StatefulSet) SetForceDelete(force bool) {
 	}
 }
 
-// create statefulset from bytes
+// CreateFromRaw create statefulset from map[string]interface{}
+func (s *StatefulSet) CreateFromRaw(raw map[string]interface{}) (*appsv1.StatefulSet, error) {
+	sts := &appsv1.StatefulSet{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, sts)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(sts.Namespace) != 0 {
+		namespace = sts.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	return s.clientset.AppsV1().StatefulSets(namespace).Create(s.ctx, sts, s.Options.CreateOptions)
+}
+
+// CreateFromBytes create statefulset from bytes
 func (s *StatefulSet) CreateFromBytes(data []byte) (*appsv1.StatefulSet, error) {
 	stsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -196,7 +216,7 @@ func (s *StatefulSet) CreateFromBytes(data []byte) (*appsv1.StatefulSet, error) 
 	return s.clientset.AppsV1().StatefulSets(namespace).Create(s.ctx, sts, s.Options.CreateOptions)
 }
 
-// create statefulset from file
+// CreateFromFile create statefulset from yaml file
 func (s *StatefulSet) CreateFromFile(path string) (*appsv1.StatefulSet, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -205,12 +225,30 @@ func (s *StatefulSet) CreateFromFile(path string) (*appsv1.StatefulSet, error) {
 	return s.CreateFromBytes(data)
 }
 
-// create statefulset from file, alias to "CreateFromFile"
+// Create create statefulset from yaml file, alias to "CreateFromFile"
 func (s *StatefulSet) Create(path string) (*appsv1.StatefulSet, error) {
 	return s.CreateFromFile(path)
 }
 
-// update statefulset from bytes
+// UpdateFromRaw update statefulset from map[string]interface{}
+func (s *StatefulSet) UpdateFromRaw(raw map[string]interface{}) (*appsv1.StatefulSet, error) {
+	sts := &appsv1.StatefulSet{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, sts)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(sts.Namespace) != 0 {
+		namespace = sts.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	return s.clientset.AppsV1().StatefulSets(namespace).Update(s.ctx, sts, s.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update statefulset from bytes
 func (s *StatefulSet) UpdateFromBytes(data []byte) (*appsv1.StatefulSet, error) {
 	stsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -233,7 +271,7 @@ func (s *StatefulSet) UpdateFromBytes(data []byte) (*appsv1.StatefulSet, error) 
 	return s.clientset.AppsV1().StatefulSets(namespace).Update(s.ctx, sts, s.Options.UpdateOptions)
 }
 
-// update statefulset from file
+// UpdateFromFile update statefulset from yaml file
 func (s *StatefulSet) UpdateFromFile(path string) (*appsv1.StatefulSet, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -242,12 +280,34 @@ func (s *StatefulSet) UpdateFromFile(path string) (*appsv1.StatefulSet, error) {
 	return s.UpdateFromBytes(data)
 }
 
-// update statefulset from file, alias to "UpdateFromFile"
+// Update update statefulset from file, alias to "UpdateFromFile"
 func (s *StatefulSet) Update(path string) (*appsv1.StatefulSet, error) {
 	return s.UpdateFromFile(path)
 }
 
-// apply statefulset from bytes
+// ApplyFromRaw apply statefulset from map[string]interface{}
+func (s *StatefulSet) ApplyFromRaw(raw map[string]interface{}) (*appsv1.StatefulSet, error) {
+	sts := &appsv1.StatefulSet{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, sts)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(sts.Namespace) != 0 {
+		namespace = sts.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	sts, err = s.clientset.AppsV1().StatefulSets(namespace).Create(s.ctx, sts, s.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		sts, err = s.clientset.AppsV1().StatefulSets(namespace).Update(s.ctx, sts, s.Options.UpdateOptions)
+	}
+	return sts, err
+}
+
+// ApplyFromBytes apply statefulset from bytes
 func (s *StatefulSet) ApplyFromBytes(data []byte) (statefulset *appsv1.StatefulSet, err error) {
 	statefulset, err = s.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -256,7 +316,7 @@ func (s *StatefulSet) ApplyFromBytes(data []byte) (statefulset *appsv1.StatefulS
 	return
 }
 
-// apply statefulset from file
+// ApplyFromFile apply statefulset from yaml file
 func (s *StatefulSet) ApplyFromFile(path string) (statefulset *appsv1.StatefulSet, err error) {
 	statefulset, err = s.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -265,12 +325,12 @@ func (s *StatefulSet) ApplyFromFile(path string) (statefulset *appsv1.StatefulSe
 	return
 }
 
-// apply statefulset from file, alias to "ApplyFromFile"
+// Apply apply statefulset from file, alias to "ApplyFromFile"
 func (s *StatefulSet) Apply(path string) (*appsv1.StatefulSet, error) {
 	return s.ApplyFromFile(path)
 }
 
-// delete statefulset from bytes
+// DeleteFromBytes delete statefulset from bytes
 func (s *StatefulSet) DeleteFromBytes(data []byte) error {
 	stsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -293,7 +353,7 @@ func (s *StatefulSet) DeleteFromBytes(data []byte) error {
 	return s.WithNamespace(namespace).DeleteByName(sts.Name)
 }
 
-// delete statefulset from file
+// DeleteFromFile delete statefulset from yaml file
 func (s *StatefulSet) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -302,17 +362,17 @@ func (s *StatefulSet) DeleteFromFile(path string) error {
 	return s.DeleteFromBytes(data)
 }
 
-// delete statefulset by name
+// DeleteByName delete statefulset by name
 func (s *StatefulSet) DeleteByName(name string) error {
 	return s.clientset.AppsV1().StatefulSets(s.namespace).Delete(s.ctx, name, s.Options.DeleteOptions)
 }
 
-// delete statefulset by name, alias to "DeleteByName"
+// Delete delete statefulset by name, alias to "DeleteByName"
 func (s *StatefulSet) Delete(name string) error {
 	return s.DeleteByName(name)
 }
 
-// get statefulset from bytes
+// GetFromBytes get statefulset from bytes
 func (s *StatefulSet) GetFromBytes(data []byte) (*appsv1.StatefulSet, error) {
 	stsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -335,7 +395,7 @@ func (s *StatefulSet) GetFromBytes(data []byte) (*appsv1.StatefulSet, error) {
 	return s.WithNamespace(namespace).GetByName(sts.Name)
 }
 
-// get statefulset from file
+// GetFromFile get statefulset from file
 func (s *StatefulSet) GetFromFile(path string) (*appsv1.StatefulSet, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -344,12 +404,12 @@ func (s *StatefulSet) GetFromFile(path string) (*appsv1.StatefulSet, error) {
 	return s.GetFromBytes(data)
 }
 
-// get statefulset by name
+// GetByName get statefulset by name
 func (s *StatefulSet) GetByName(name string) (*appsv1.StatefulSet, error) {
 	return s.clientset.AppsV1().StatefulSets(s.namespace).Get(s.ctx, name, s.Options.GetOptions)
 }
 
-// get statefulset by name, alias to "GetByName"
+// Get get statefulset by name, alias to "GetByName"
 func (s *StatefulSet) Get(name string) (*appsv1.StatefulSet, error) {
 	return s.GetByName(name)
 }

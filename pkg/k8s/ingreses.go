@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -170,7 +172,25 @@ func (i *Ingress) SetForceDelete(force bool) {
 	}
 }
 
-// create ingress from bytes
+// CreateFromRaw create ingress from map[string]interface{}
+func (i *Ingress) CreateFromRaw(raw map[string]interface{}) (*networkingv1.Ingress, error) {
+	ingress := &networkingv1.Ingress{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, ingress)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(ingress.Namespace) != 0 {
+		namespace = ingress.Namespace
+	} else {
+		namespace = i.namespace
+	}
+
+	return i.clientset.NetworkingV1().Ingresses(namespace).Create(i.ctx, ingress, i.Options.CreateOptions)
+}
+
+// CreateFromBytes create ingress from bytes
 func (i *Ingress) CreateFromBytes(data []byte) (*networkingv1.Ingress, error) {
 	ingressJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -193,7 +213,7 @@ func (i *Ingress) CreateFromBytes(data []byte) (*networkingv1.Ingress, error) {
 	return i.clientset.NetworkingV1().Ingresses(namespace).Create(i.ctx, ingress, i.Options.CreateOptions)
 }
 
-// create ingress from file
+// CreateFromFile create ingress from yaml file
 func (i *Ingress) CreateFromFile(path string) (*networkingv1.Ingress, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -202,12 +222,30 @@ func (i *Ingress) CreateFromFile(path string) (*networkingv1.Ingress, error) {
 	return i.CreateFromBytes(data)
 }
 
-// create ingress from file, alias to "CreateFromFile"
+// Create create ingress from file, alias to "CreateFromFile"
 func (i *Ingress) Create(path string) (*networkingv1.Ingress, error) {
 	return i.CreateFromFile(path)
 }
 
-// update ingress from bytes
+// UpdateFromRaw update ingress from map[string]interface{}
+func (i *Ingress) UpdateFromRaw(raw map[string]interface{}) (*networkingv1.Ingress, error) {
+	ingress := &networkingv1.Ingress{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, ingress)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(ingress.Namespace) != 0 {
+		namespace = ingress.Namespace
+	} else {
+		namespace = i.namespace
+	}
+
+	return i.clientset.NetworkingV1().Ingresses(namespace).Update(i.ctx, ingress, i.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update ingress from bytes
 func (i *Ingress) UpdateFromBytes(data []byte) (*networkingv1.Ingress, error) {
 	ingressJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -229,7 +267,7 @@ func (i *Ingress) UpdateFromBytes(data []byte) (*networkingv1.Ingress, error) {
 	return i.clientset.NetworkingV1().Ingresses(namespace).Update(i.ctx, ingress, i.Options.UpdateOptions)
 }
 
-// update ingress from file
+// UpdateFromFile update ingress from yaml file
 func (i *Ingress) UpdateFromFile(path string) (*networkingv1.Ingress, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -238,12 +276,34 @@ func (i *Ingress) UpdateFromFile(path string) (*networkingv1.Ingress, error) {
 	return i.UpdateFromBytes(data)
 }
 
-// update ingress from file, alias to "UpdateFromFile"
+// Update update ingress from file, alias to "UpdateFromFile"
 func (i *Ingress) Update(path string) (*networkingv1.Ingress, error) {
 	return i.UpdateFromFile(path)
 }
 
-// apply ingress from bytes
+// ApplyFromRaw apply ingress from map[string]interface{}
+func (i *Ingress) ApplyFromRaw(raw map[string]interface{}) (*networkingv1.Ingress, error) {
+	ingress := &networkingv1.Ingress{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, ingress)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(ingress.Namespace) != 0 {
+		namespace = ingress.Namespace
+	} else {
+		namespace = i.namespace
+	}
+
+	ingress, err = i.clientset.NetworkingV1().Ingresses(namespace).Create(i.ctx, ingress, i.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		ingress, err = i.clientset.NetworkingV1().Ingresses(namespace).Update(i.ctx, ingress, i.Options.UpdateOptions)
+	}
+	return ingress, err
+}
+
+// ApplyFromBytes apply ingress from bytes
 func (i *Ingress) ApplyFromBytes(data []byte) (ingress *networkingv1.Ingress, err error) {
 	ingress, err = i.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -252,7 +312,7 @@ func (i *Ingress) ApplyFromBytes(data []byte) (ingress *networkingv1.Ingress, er
 	return
 }
 
-// apply ingress from file
+// ApplyFromFile apply ingress from yaml file
 func (i *Ingress) ApplyFromFile(path string) (ingress *networkingv1.Ingress, err error) {
 	ingress, err = i.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -261,12 +321,12 @@ func (i *Ingress) ApplyFromFile(path string) (ingress *networkingv1.Ingress, err
 	return
 }
 
-// apply ingress from file, alias to "ApplyFromFile"
+// Apply apply ingress from file, alias to "ApplyFromFile"
 func (i *Ingress) Apply(path string) (*networkingv1.Ingress, error) {
 	return i.ApplyFromFile(path)
 }
 
-// delete ingress from bytes
+// DeleteFromBytes delete ingress from bytes
 func (i *Ingress) DeleteFromBytes(data []byte) error {
 	ingressJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -289,7 +349,7 @@ func (i *Ingress) DeleteFromBytes(data []byte) error {
 	return i.WithNamespace(namespace).DeleteByName(ingress.Name)
 }
 
-// delete ingress from file
+// DeleteFromFile delete ingress from yaml file
 func (i *Ingress) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -298,17 +358,17 @@ func (i *Ingress) DeleteFromFile(path string) error {
 	return i.DeleteFromBytes(data)
 }
 
-// delete ingress by name
+// DeleteByName delete ingress by name
 func (i *Ingress) DeleteByName(name string) error {
 	return i.clientset.NetworkingV1().Ingresses(i.namespace).Delete(i.ctx, name, i.Options.DeleteOptions)
 }
 
-// delete ingress by name, alias to "DeleteByName"
+// Delete delete ingress by name, alias to "DeleteByName"
 func (i *Ingress) Delete(name string) error {
 	return i.DeleteByName(name)
 }
 
-// get ingress from bytes
+// GetFromBytes get ingress from bytes
 func (i *Ingress) GetFromBytes(data []byte) (*networkingv1.Ingress, error) {
 	ingressJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -328,7 +388,7 @@ func (i *Ingress) GetFromBytes(data []byte) (*networkingv1.Ingress, error) {
 	return i.WithNamespace(namespace).GetByName(ingress.Name)
 }
 
-// get ingress from file
+// GetFromFile get ingress from yaml file
 func (i *Ingress) GetFromFile(path string) (*networkingv1.Ingress, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -337,39 +397,39 @@ func (i *Ingress) GetFromFile(path string) (*networkingv1.Ingress, error) {
 	return i.GetFromBytes(data)
 }
 
-// get ingress by name
+// GetByName get ingress by name
 func (i *Ingress) GetByName(name string) (*networkingv1.Ingress, error) {
 	return i.clientset.NetworkingV1().Ingresses(i.namespace).Get(i.ctx, name, i.Options.GetOptions)
 }
 
-// get ingress by name, alias to "GetByName"
+// Get get ingress by name, alias to "GetByName"
 func (i *Ingress) Get(name string) (*networkingv1.Ingress, error) {
 	return i.GetByName(name)
 }
 
-// list ingresses by labels
+// ListByLabel list ingresses by labels
 func (i *Ingress) ListByLabel(labels string) (*networkingv1.IngressList, error) {
 	listOptions := i.Options.ListOptions.DeepCopy()
 	listOptions.LabelSelector = labels
 	return i.clientset.NetworkingV1().Ingresses(i.namespace).List(i.ctx, *listOptions)
 }
 
-// list ingresses by labels, alias to "ListByLabel"
+// List list ingresses by labels, alias to "ListByLabel"
 func (i *Ingress) List(labels string) (*networkingv1.IngressList, error) {
 	return i.ListByLabel(labels)
 }
 
-// list ingresses by namespace
+// ListByNamespace list ingresses by namespace
 func (i *Ingress) ListByNamespace(namespace string) (*networkingv1.IngressList, error) {
 	return i.WithNamespace(namespace).ListByLabel("")
 }
 
-// list all ingresses in the k8s cluster
+// ListAll list all ingresses in the k8s cluster
 func (i *Ingress) ListAll() (*networkingv1.IngressList, error) {
 	return i.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// watch ingress by name
+// WatchByName watch ingress by name
 func (i *Ingress) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -412,7 +472,7 @@ func (i *Ingress) WatchByName(name string,
 	}
 }
 
-// watch ingress by labelSelector
+// WatchByLabel watch ingress by labelSelector
 func (i *Ingress) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -458,7 +518,7 @@ func (i *Ingress) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch ingress by name, alias to "WatchByName"
+// Watch watch ingress by name, alias to "WatchByName"
 func (i *Ingress) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return i.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

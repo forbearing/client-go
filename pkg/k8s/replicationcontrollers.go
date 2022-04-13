@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -175,7 +176,25 @@ func (r *ReplicationController) SetForceDelete(force bool) {
 	}
 }
 
-// create replicationcontroller from bytes
+// CreateFromRaw create replicationcontroller from map[string]interface{}
+func (r *ReplicationController) CreateFromRaw(raw map[string]interface{}) (*corev1.ReplicationController, error) {
+	rc := &corev1.ReplicationController{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, rc)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(rc.Namespace) != 0 {
+		namespace = rc.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	return r.clientset.CoreV1().ReplicationControllers(namespace).Create(r.ctx, rc, r.Options.CreateOptions)
+}
+
+// CreateFromBytes create replicationcontroller from bytes
 func (r *ReplicationController) CreateFromBytes(data []byte) (*corev1.ReplicationController, error) {
 	rcJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -198,7 +217,7 @@ func (r *ReplicationController) CreateFromBytes(data []byte) (*corev1.Replicatio
 	return r.clientset.CoreV1().ReplicationControllers(namespace).Create(r.ctx, rc, r.Options.CreateOptions)
 }
 
-// create replicationcontroller from file
+// CreateFromFile create replicationcontroller from yaml file
 func (r *ReplicationController) CreateFromFile(path string) (*corev1.ReplicationController, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -207,12 +226,30 @@ func (r *ReplicationController) CreateFromFile(path string) (*corev1.Replication
 	return r.CreateFromBytes(data)
 }
 
-// create replicationcontroller from file, alias to "CreateFromFile"
+// Create create replicationcontroller from yaml file, alias to "CreateFromFile"
 func (r *ReplicationController) Create(path string) (*corev1.ReplicationController, error) {
 	return r.CreateFromFile(path)
 }
 
-// update replicationcontroller from bytes
+// UpdateFromRaw update replicationcontroller from map[string]interface{}
+func (r *ReplicationController) UpdateFromRaw(raw map[string]interface{}) (*corev1.ReplicationController, error) {
+	rc := &corev1.ReplicationController{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, rc)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(rc.Namespace) != 0 {
+		namespace = rc.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	return r.clientset.CoreV1().ReplicationControllers(namespace).Update(r.ctx, rc, r.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update replicationcontroller from bytes
 func (r *ReplicationController) UpdateFromBytes(data []byte) (*corev1.ReplicationController, error) {
 	rcJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -235,7 +272,7 @@ func (r *ReplicationController) UpdateFromBytes(data []byte) (*corev1.Replicatio
 	return r.clientset.CoreV1().ReplicationControllers(namespace).Update(r.ctx, rc, r.Options.UpdateOptions)
 }
 
-// update replicationcontroller from file
+// UpdateFromFile update replicationcontroller from yaml file
 func (r *ReplicationController) UpdateFromFile(path string) (*corev1.ReplicationController, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -244,12 +281,34 @@ func (r *ReplicationController) UpdateFromFile(path string) (*corev1.Replication
 	return r.UpdateFromBytes(data)
 }
 
-// update replicationcontroller from file, alias to "UpdateFromFile"
+// Update update replicationcontroller from yaml file, alias to "UpdateFromFile"
 func (r *ReplicationController) Update(path string) (*corev1.ReplicationController, error) {
 	return r.UpdateFromFile(path)
 }
 
-// apply replicationcontroller from bytes
+// ApplyFromRaw apply replicationcontroller from map[string]interface{}
+func (r *ReplicationController) ApplyFromRaw(raw map[string]interface{}) (*corev1.ReplicationController, error) {
+	rc := &corev1.ReplicationController{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, rc)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(rc.Namespace) != 0 {
+		namespace = rc.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	rc, err = r.clientset.CoreV1().ReplicationControllers(namespace).Create(r.ctx, rc, r.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		rc, err = r.clientset.CoreV1().ReplicationControllers(namespace).Update(r.ctx, rc, r.Options.UpdateOptions)
+	}
+	return rc, err
+}
+
+// ApplyFromBytes apply replicationcontroller from bytes
 func (r *ReplicationController) ApplyFromBytes(data []byte) (rc *corev1.ReplicationController, err error) {
 	rc, err = r.CreateFromBytes(data)
 	if k8serrors.IsAlreadyExists(err) {
@@ -259,7 +318,7 @@ func (r *ReplicationController) ApplyFromBytes(data []byte) (rc *corev1.Replicat
 	return
 }
 
-// apply replicationcontroller from file
+// ApplyFromFile apply replicationcontroller from yaml file
 func (r *ReplicationController) ApplyFromFile(path string) (rc *corev1.ReplicationController, err error) {
 	rc, err = r.CreateFromFile(path)
 	if k8serrors.IsAlreadyExists(err) {
@@ -268,12 +327,12 @@ func (r *ReplicationController) ApplyFromFile(path string) (rc *corev1.Replicati
 	return
 }
 
-// apply replicationcontroller from file, alias to "ApplyFromFile"
+// Apply apply replicationcontroller from yaml file, alias to "ApplyFromFile"
 func (r *ReplicationController) Apply(path string) (*corev1.ReplicationController, error) {
 	return r.ApplyFromFile(path)
 }
 
-// delete replicationcontroller from bytes
+// DeleteFromBytes delete replicationcontroller from bytes
 func (r *ReplicationController) DeleteFromBytes(data []byte) error {
 	rcJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -296,7 +355,7 @@ func (r *ReplicationController) DeleteFromBytes(data []byte) error {
 	return r.WithNamespace(namespace).DeleteByName(rc.Name)
 }
 
-// delete replicationcontroller from file
+// DeleteFromFile delete replicationcontroller from yaml file
 func (r *ReplicationController) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -305,12 +364,12 @@ func (r *ReplicationController) DeleteFromFile(path string) error {
 	return r.DeleteFromBytes(data)
 }
 
-// delete replicationcontroller by name
+// DeleteByName delete replicationcontroller by name
 func (r *ReplicationController) DeleteByName(name string) error {
 	return r.clientset.CoreV1().ReplicationControllers(r.namespace).Delete(r.ctx, name, r.Options.DeleteOptions)
 }
 
-// delete replicationcontroller by name, alias to "DeleteByName"
+// Delete delete replicationcontroller by name, alias to "DeleteByName"
 func (r *ReplicationController) Delete(name string) error {
 	return r.DeleteByName(name)
 }
@@ -337,7 +396,7 @@ func (r *ReplicationController) ListAll() (*corev1.ReplicationControllerList, er
 	return r.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// get replicationcontroller from bytes
+// GetFromBytes get replicationcontroller from bytes
 func (r *ReplicationController) GetFromBytes(data []byte) (*corev1.ReplicationController, error) {
 	rcJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -359,7 +418,7 @@ func (r *ReplicationController) GetFromBytes(data []byte) (*corev1.ReplicationCo
 	return r.WithNamespace(namespace).GetByName(rc.Name)
 }
 
-// get replicationcontroller from file
+// GetFromFile get replicationcontroller from yaml file
 func (r *ReplicationController) GetFromFile(path string) (*corev1.ReplicationController, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -368,17 +427,17 @@ func (r *ReplicationController) GetFromFile(path string) (*corev1.ReplicationCon
 	return r.GetFromBytes(data)
 }
 
-// get replicationcontroller by name
+// GetByName get replicationcontroller by name
 func (r *ReplicationController) GetByName(name string) (*corev1.ReplicationController, error) {
 	return r.clientset.CoreV1().ReplicationControllers(r.namespace).Get(r.ctx, name, r.Options.GetOptions)
 }
 
-// get replicationcontroller by name
+// Get get replicationcontroller by name
 func (r *ReplicationController) Get(name string) (replicationcontroller *corev1.ReplicationController, err error) {
 	return r.GetByName(name)
 }
 
-// check if the replicationcontroller is ready
+// IsReady check if the replicationcontroller is ready
 func (r *ReplicationController) IsReady(name string) bool {
 	// 获取 *corev1.ReplicationController 对象
 	rc, err := r.Get(name)
@@ -394,7 +453,7 @@ func (r *ReplicationController) IsReady(name string) bool {
 	return false
 }
 
-// wait for the replicationcontroller to be in the ready status
+// WaitReady wait for the replicationcontroller to be in the ready status
 func (r *ReplicationController) WaitReady(name string, check bool) (err error) {
 	var (
 		watcher watch.Interface
@@ -437,7 +496,7 @@ func (r *ReplicationController) WaitReady(name string, check bool) (err error) {
 	}
 }
 
-// watch replicationcontrollers by labelSelector
+// WatchByName watch replicationcontrollers by labelSelector
 func (r *ReplicationController) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -481,7 +540,7 @@ func (r *ReplicationController) WatchByName(name string,
 	}
 }
 
-// watch replicationcontrollers by labelSelector
+// WatchByLabel watch replicationcontrollers by labelSelector
 func (r *ReplicationController) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -528,7 +587,7 @@ func (r *ReplicationController) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch replicationcontrollers by name, alias to "WatchByName"
+// Watch watch replicationcontrollers by name, alias to "WatchByName"
 func (r *ReplicationController) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return r.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

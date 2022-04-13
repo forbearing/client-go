@@ -10,7 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -171,7 +173,25 @@ func (s *Service) SetForceDelete(force bool) {
 	}
 }
 
-// create service from bytes
+// CreateFromRaw create service from map[string]interface{}
+func (s *Service) CreateFromRaw(raw map[string]interface{}) (*corev1.Service, error) {
+	service := &corev1.Service{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, service)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(service.Namespace) != 0 {
+		namespace = service.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	return s.clientset.CoreV1().Services(namespace).Create(s.ctx, service, s.Options.CreateOptions)
+}
+
+// CreateFromBytes create service from bytes
 func (s *Service) CreateFromBytes(data []byte) (*corev1.Service, error) {
 	serviceJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -194,7 +214,7 @@ func (s *Service) CreateFromBytes(data []byte) (*corev1.Service, error) {
 	return s.clientset.CoreV1().Services(namespace).Create(s.ctx, service, s.Options.CreateOptions)
 }
 
-// create service from file
+// CreateFromFile create service from yaml file
 func (s *Service) CreateFromFile(path string) (*corev1.Service, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -203,12 +223,30 @@ func (s *Service) CreateFromFile(path string) (*corev1.Service, error) {
 	return s.CreateFromBytes(data)
 }
 
-// create service from file, alias to "CreateFromFile"
+// Create create service from yaml file, alias to "CreateFromFile"
 func (s *Service) Create(path string) (*corev1.Service, error) {
 	return s.CreateFromFile(path)
 }
 
-// update service from bytes
+// UpdateFromRaw update service from map[string]interface{}
+func (s *Service) UpdateFromRaw(raw map[string]interface{}) (*corev1.Service, error) {
+	service := &corev1.Service{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, service)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(service.Namespace) != 0 {
+		namespace = service.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	return s.clientset.CoreV1().Services(namespace).Update(s.ctx, service, s.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update service from bytes
 func (s *Service) UpdateFromBytes(data []byte) (*corev1.Service, error) {
 	serviceJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -231,7 +269,7 @@ func (s *Service) UpdateFromBytes(data []byte) (*corev1.Service, error) {
 	return s.clientset.CoreV1().Services(namespace).Update(s.ctx, service, s.Options.UpdateOptions)
 }
 
-// update service from file
+// UpdateFromFile update service from yaml file
 func (s *Service) UpdateFromFile(path string) (*corev1.Service, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -240,12 +278,34 @@ func (s *Service) UpdateFromFile(path string) (*corev1.Service, error) {
 	return s.UpdateFromBytes(data)
 }
 
-// update service from file, alias to "UpdateFromFile"
+// Update update service from yaml file, alias to "UpdateFromFile"
 func (s *Service) Update(path string) (*corev1.Service, error) {
 	return s.UpdateFromFile(path)
 }
 
-// apply service from bytes
+// ApplyFromRaw apply service from map[string]interface{}
+func (s *Service) ApplyFromRaw(raw map[string]interface{}) (*corev1.Service, error) {
+	service := &corev1.Service{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, service)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(service.Namespace) != 0 {
+		namespace = service.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	service, err = s.clientset.CoreV1().Services(namespace).Create(s.ctx, service, s.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		service, err = s.clientset.CoreV1().Services(namespace).Update(s.ctx, service, s.Options.UpdateOptions)
+	}
+	return service, err
+}
+
+// ApplyFromBytes apply service from bytes
 func (s *Service) ApplyFromBytes(data []byte) (service *corev1.Service, err error) {
 	service, err = s.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -254,7 +314,7 @@ func (s *Service) ApplyFromBytes(data []byte) (service *corev1.Service, err erro
 	return
 }
 
-// apply service from file
+// ApplyFromFile apply service from yaml file
 func (s *Service) ApplyFromFile(path string) (service *corev1.Service, err error) {
 	service, err = s.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -263,12 +323,12 @@ func (s *Service) ApplyFromFile(path string) (service *corev1.Service, err error
 	return
 }
 
-// apply service from file, alias to "ApplyFromFile"
+// Apply apply service from yaml file, alias to "ApplyFromFile"
 func (s *Service) Apply(path string) (*corev1.Service, error) {
 	return s.ApplyFromFile(path)
 }
 
-// delete service from bytes
+// DeleteFromBytes delete service from bytes
 func (s *Service) DeleteFromBytes(data []byte) error {
 	serviceJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -291,7 +351,7 @@ func (s *Service) DeleteFromBytes(data []byte) error {
 	return s.WithNamespace(namespace).DeleteByName(service.Name)
 }
 
-// delete service from file
+// DeleteFromFile delete service from yaml file
 func (s *Service) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -300,17 +360,17 @@ func (s *Service) DeleteFromFile(path string) error {
 	return s.DeleteFromBytes(data)
 }
 
-// delete service by name
+// DeleteByName delete service by name
 func (s *Service) DeleteByName(name string) error {
 	return s.clientset.CoreV1().Services(s.namespace).Delete(s.ctx, name, s.Options.DeleteOptions)
 }
 
-// delete service by name, alias to "DeleteByName"
+// Delete delete service by name, alias to "DeleteByName"
 func (s *Service) Delete(name string) error {
 	return s.DeleteByName(name)
 }
 
-// get service from bytes
+// GetFromBytes get service from bytes
 func (s *Service) GetFromBytes(data []byte) (*corev1.Service, error) {
 	serviceJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -333,7 +393,7 @@ func (s *Service) GetFromBytes(data []byte) (*corev1.Service, error) {
 	return s.WithNamespace(namespace).GetByName(service.Name)
 }
 
-// get service from file
+// GetFromFile get service from yaml file
 func (s *Service) GetFromFile(path string) (*corev1.Service, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -342,12 +402,12 @@ func (s *Service) GetFromFile(path string) (*corev1.Service, error) {
 	return s.GetFromBytes(data)
 }
 
-// get service by name
+// GetByName get service by name
 func (s *Service) GetByName(name string) (*corev1.Service, error) {
 	return s.clientset.CoreV1().Services(s.namespace).Get(s.ctx, name, s.Options.GetOptions)
 }
 
-// get service by name, alias to "GetByName"
+// Get get service by name, alias to "GetByName"
 func (s *Service) Get(name string) (*corev1.Service, error) {
 	return s.GetByName(name)
 }
@@ -374,7 +434,7 @@ func (s *Service) ListAll() (*corev1.ServiceList, error) {
 	return s.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// watch services by name
+// WatchByName watch services by name
 func (s *Service) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -418,7 +478,7 @@ func (s *Service) WatchByName(name string,
 	}
 }
 
-// watch services by labelSelector
+// WatchByLabel watch services by labelSelector
 func (s *Service) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -466,7 +526,7 @@ func (s *Service) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch services by name, alias to "WatchByName"
+// Watch watch services by name, alias to "WatchByName"
 func (s *Service) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return s.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

@@ -12,7 +12,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -174,7 +176,25 @@ func (r *ReplicaSet) SetForceDelete(force bool) {
 	}
 }
 
-// create replicaset from bytes
+// CreateFromRaw create replicaset from map[string]interface{}
+func (r *ReplicaSet) CreateFromRaw(raw map[string]interface{}) (*appsv1.ReplicaSet, error) {
+	rs := &appsv1.ReplicaSet{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, rs)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(rs.Namespace) != 0 {
+		namespace = rs.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	return r.clientset.AppsV1().ReplicaSets(namespace).Create(r.ctx, rs, r.Options.CreateOptions)
+}
+
+// CreateFromBytes create replicaset from bytes
 func (r *ReplicaSet) CreateFromBytes(data []byte) (*appsv1.ReplicaSet, error) {
 	dsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -196,7 +216,7 @@ func (r *ReplicaSet) CreateFromBytes(data []byte) (*appsv1.ReplicaSet, error) {
 	return r.clientset.AppsV1().ReplicaSets(namespace).Create(r.ctx, replicaset, r.Options.CreateOptions)
 }
 
-// create replicaset from file
+// CreateFromFile create replicaset from yaml file
 func (r *ReplicaSet) CreateFromFile(path string) (*appsv1.ReplicaSet, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -205,12 +225,30 @@ func (r *ReplicaSet) CreateFromFile(path string) (*appsv1.ReplicaSet, error) {
 	return r.CreateFromBytes(data)
 }
 
-// create replicaset from file, alias to "CreateFromFile"
+// Create create replicaset from yaml file, alias to "CreateFromFile"
 func (r *ReplicaSet) Create(path string) (*appsv1.ReplicaSet, error) {
 	return r.CreateFromFile(path)
 }
 
-// update replicaset from bytes
+// UpdateFromRaw update replicaset from map[string]interface{}
+func (r *ReplicaSet) UpdateFromRaw(raw map[string]interface{}) (*appsv1.ReplicaSet, error) {
+	rs := &appsv1.ReplicaSet{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, rs)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(rs.Namespace) != 0 {
+		namespace = rs.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	return r.clientset.AppsV1().ReplicaSets(namespace).Update(r.ctx, rs, r.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update replicaset from bytes
 func (r *ReplicaSet) UpdateFromBytes(data []byte) (*appsv1.ReplicaSet, error) {
 	dsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -233,7 +271,7 @@ func (r *ReplicaSet) UpdateFromBytes(data []byte) (*appsv1.ReplicaSet, error) {
 	return r.clientset.AppsV1().ReplicaSets(namespace).Update(r.ctx, replicaset, r.Options.UpdateOptions)
 }
 
-// update replicaset from file
+// UpdateFromFile update replicaset from yaml file
 func (r *ReplicaSet) UpdateFromFile(path string) (*appsv1.ReplicaSet, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -242,12 +280,34 @@ func (r *ReplicaSet) UpdateFromFile(path string) (*appsv1.ReplicaSet, error) {
 	return r.UpdateFromBytes(data)
 }
 
-// update replicaset from file, alias to "UpdateFromFile"
+// Update update replicaset from yaml file, alias to "UpdateFromFile"
 func (r *ReplicaSet) Update(path string) (*appsv1.ReplicaSet, error) {
 	return r.UpdateFromFile(path)
 }
 
-// apply replicaset from bytes
+// ApplyFromRaw apply replicaset from map[string]interface{}
+func (r *ReplicaSet) ApplyFromRaw(raw map[string]interface{}) (*appsv1.ReplicaSet, error) {
+	rs := &appsv1.ReplicaSet{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, rs)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(rs.Namespace) != 0 {
+		namespace = rs.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	rs, err = r.clientset.AppsV1().ReplicaSets(namespace).Create(r.ctx, rs, r.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		rs, err = r.clientset.AppsV1().ReplicaSets(namespace).Update(r.ctx, rs, r.Options.UpdateOptions)
+	}
+	return rs, err
+}
+
+// ApplyFromBytes apply replicaset from bytes
 func (r *ReplicaSet) ApplyFromBytes(data []byte) (replicaset *appsv1.ReplicaSet, err error) {
 	replicaset, err = r.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -256,7 +316,7 @@ func (r *ReplicaSet) ApplyFromBytes(data []byte) (replicaset *appsv1.ReplicaSet,
 	return
 }
 
-// apply replicaset from file
+// ApplyFromFile apply replicaset from yaml file
 func (r *ReplicaSet) ApplyFromFile(path string) (replicaset *appsv1.ReplicaSet, err error) {
 	replicaset, err = r.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -265,12 +325,12 @@ func (r *ReplicaSet) ApplyFromFile(path string) (replicaset *appsv1.ReplicaSet, 
 	return
 }
 
-// apply replicaset from file, alias to "ApplyFromFile"
+// Apply apply replicaset from yaml file, alias to "ApplyFromFile"
 func (r *ReplicaSet) Apply(path string) (*appsv1.ReplicaSet, error) {
 	return r.ApplyFromFile(path)
 }
 
-// delete replicaset from bytes
+// DeleteFromBytes delete replicaset from bytes
 func (r *ReplicaSet) DeleteFromBytes(data []byte) error {
 	dsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -293,7 +353,7 @@ func (r *ReplicaSet) DeleteFromBytes(data []byte) error {
 	return r.WithNamespace(namespace).DeleteByName(replicaset.Name)
 }
 
-// delete replicaset from file
+// DeleteFromFile delete replicaset from yaml file
 func (r *ReplicaSet) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -302,17 +362,17 @@ func (r *ReplicaSet) DeleteFromFile(path string) error {
 	return r.DeleteFromBytes(data)
 }
 
-// delete replicaset by name
+// DeleteByName delete replicaset by name
 func (r *ReplicaSet) DeleteByName(name string) error {
 	return r.clientset.AppsV1().ReplicaSets(r.namespace).Delete(r.ctx, name, r.Options.DeleteOptions)
 }
 
-// delete replicaset by name, alias to "DeleteByName"
+// Delete delete replicaset by name, alias to "DeleteByName"
 func (r *ReplicaSet) Delete(name string) error {
 	return r.DeleteByName(name)
 }
 
-// get replicaset from bytes
+// GetFromBytes get replicaset from bytes
 func (r *ReplicaSet) GetFromBytes(data []byte) (*appsv1.ReplicaSet, error) {
 	dsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -334,7 +394,7 @@ func (r *ReplicaSet) GetFromBytes(data []byte) (*appsv1.ReplicaSet, error) {
 	return r.WithNamespace(namespace).GetByName(replicaset.Name)
 }
 
-// get replicaset from file
+// GetFromFile get replicaset from yaml file
 func (r *ReplicaSet) GetFromFile(path string) (*appsv1.ReplicaSet, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -344,12 +404,12 @@ func (r *ReplicaSet) GetFromFile(path string) (*appsv1.ReplicaSet, error) {
 	return r.GetFromBytes(data)
 }
 
-// get replicaset by name
+// GetByName get replicaset by name
 func (r *ReplicaSet) GetByName(name string) (*appsv1.ReplicaSet, error) {
 	return r.clientset.AppsV1().ReplicaSets(r.namespace).Get(r.ctx, name, r.Options.GetOptions)
 }
 
-// get replicaset by name, alias to "GetByName"
+// Get get replicaset by name, alias to "GetByName"
 func (r *ReplicaSet) Get(name string) (*appsv1.ReplicaSet, error) {
 	return r.GetByName(name)
 }
@@ -376,7 +436,7 @@ func (r *ReplicaSet) ListAll() (*appsv1.ReplicaSetList, error) {
 	return r.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// get replicaset all pods
+// GetPods get replicaset all pods
 func (r *ReplicaSet) GetPods(name string) (podList []string, err error) {
 	// 检查 replicaset 是否就绪
 	err = r.WaitReady(name, true)
@@ -408,7 +468,7 @@ func (r *ReplicaSet) GetPods(name string) (podList []string, err error) {
 	return
 }
 
-// get replicaset pv by name
+// GetPV get replicaset pv by name
 func (r *ReplicaSet) GetPV(name string) (pvList []string, err error) {
 	var (
 		pvcHandler *PersistentVolumeClaim
@@ -444,7 +504,7 @@ func (r *ReplicaSet) GetPV(name string) (pvList []string, err error) {
 	return
 }
 
-// get replicaset pvc by name
+// GetPVC get replicaset pvc by name
 func (r *ReplicaSet) GetPVC(name string) (pvcList []string, err error) {
 	err = r.WaitReady(name, true)
 	if err != nil {
@@ -467,7 +527,7 @@ func (r *ReplicaSet) GetPVC(name string) (pvcList []string, err error) {
 	return
 }
 
-// check if the replicaset is ready
+// IsReady check if the replicaset is ready
 func (r *ReplicaSet) IsReady(name string) bool {
 	replicaset, err := r.Get(name)
 	if err != nil {
@@ -482,7 +542,7 @@ func (r *ReplicaSet) IsReady(name string) bool {
 	return false
 }
 
-// wait the replicaset to be th ready status
+// WaitReady wait the replicaset to be th ready status
 func (r *ReplicaSet) WaitReady(name string, check bool) (err error) {
 	var (
 		watcher watch.Interface
@@ -527,7 +587,7 @@ func (r *ReplicaSet) WaitReady(name string, check bool) (err error) {
 	}
 }
 
-// watch replicasets by name
+// WatchByName watch replicasets by name
 func (r *ReplicaSet) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -571,7 +631,7 @@ func (r *ReplicaSet) WatchByName(name string,
 	}
 }
 
-// watch replicasets by labelSelector
+// WatchByLabel watch replicasets by labelSelector
 func (r *ReplicaSet) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -618,7 +678,7 @@ func (r *ReplicaSet) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch replicasets by name, alias to "WatchByName"
+// Watch watch replicasets by name, alias to "WatchByName"
 func (r *ReplicaSet) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return r.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

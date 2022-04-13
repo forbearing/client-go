@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -151,7 +153,18 @@ func (n *Namespace) SetForceDelete(force bool) {
 	}
 }
 
-// create namespace from bytes
+// CreateFromRaw create namespace from map[string]interface{}
+func (n *Namespace) CreateFromRaw(raw map[string]interface{}) (*corev1.Namespace, error) {
+	namespace := &corev1.Namespace{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return n.clientset.CoreV1().Namespaces().Create(n.ctx, namespace, n.Options.CreateOptions)
+}
+
+// CreateFromBytes create namespace from bytes
 func (n *Namespace) CreateFromBytes(data []byte) (*corev1.Namespace, error) {
 	nsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -167,7 +180,7 @@ func (n *Namespace) CreateFromBytes(data []byte) (*corev1.Namespace, error) {
 	return n.clientset.CoreV1().Namespaces().Create(n.ctx, ns, n.Options.CreateOptions)
 }
 
-// create namespace from file
+// CreateFromFile create namespace from yaml file
 func (n *Namespace) CreateFromFile(path string) (*corev1.Namespace, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -176,12 +189,23 @@ func (n *Namespace) CreateFromFile(path string) (*corev1.Namespace, error) {
 	return n.CreateFromBytes(data)
 }
 
-// create namespace from file, alias to "CreateFromFile"
+// Create create namespace from yaml file, alias to "CreateFromFile"
 func (n *Namespace) Create(path string) (*corev1.Namespace, error) {
 	return n.CreateFromFile(path)
 }
 
-// update namespace from bytes
+// UpdateFromRaw update namespace from map[string]interface{}
+func (n *Namespace) UpdateFromRaw(raw map[string]interface{}) (*corev1.Namespace, error) {
+	namespace := &corev1.Namespace{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return n.clientset.CoreV1().Namespaces().Update(n.ctx, namespace, n.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update namespace from bytes
 func (n *Namespace) UpdateFromBytes(data []byte) (*corev1.Namespace, error) {
 	nsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -197,7 +221,7 @@ func (n *Namespace) UpdateFromBytes(data []byte) (*corev1.Namespace, error) {
 	return n.clientset.CoreV1().Namespaces().Update(n.ctx, ns, n.Options.UpdateOptions)
 }
 
-// update namespace from file
+// UpdateFromFile update namespace from yaml file
 func (n *Namespace) UpdateFromFile(path string) (*corev1.Namespace, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -206,12 +230,27 @@ func (n *Namespace) UpdateFromFile(path string) (*corev1.Namespace, error) {
 	return n.UpdateFromBytes(data)
 }
 
-// update namespace from file, alias to "UpdateFromFile"
+// Update update namespace from yaml file, alias to "UpdateFromFile"
 func (n *Namespace) Update(path string) (*corev1.Namespace, error) {
 	return n.UpdateFromFile(path)
 }
 
-// apply namespace from bytes
+// ApplyFromRaw apply namespace from map[string]interface{}
+func (n *Namespace) ApplyFromRaw(raw map[string]interface{}) (*corev1.Namespace, error) {
+	namespace := &corev1.Namespace{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	namespace, err = n.clientset.CoreV1().Namespaces().Create(n.ctx, namespace, n.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		namespace, err = n.clientset.CoreV1().Namespaces().Update(n.ctx, namespace, n.Options.UpdateOptions)
+	}
+	return namespace, err
+}
+
+// ApplyFromBytes apply namespace from bytes
 func (n *Namespace) ApplyFromBytes(data []byte) (namespace *corev1.Namespace, err error) {
 	namespace, err = n.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -220,7 +259,7 @@ func (n *Namespace) ApplyFromBytes(data []byte) (namespace *corev1.Namespace, er
 	return
 }
 
-// apply namespace from file
+// ApplyFromFile apply namespace from yaml file
 func (n *Namespace) ApplyFromFile(path string) (namespace *corev1.Namespace, err error) {
 	namespace, err = n.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -229,12 +268,12 @@ func (n *Namespace) ApplyFromFile(path string) (namespace *corev1.Namespace, err
 	return
 }
 
-// apply namespace from file, alias to "ApplyFromFile"
+// Apply apply namespace from yaml file, alias to "ApplyFromFile"
 func (n *Namespace) Apply(path string) (*corev1.Namespace, error) {
 	return n.ApplyFromFile(path)
 }
 
-// delete namespace from bytes
+// DeleteFromBytes delete namespace from bytes
 func (n *Namespace) DeleteFromBytes(data []byte) error {
 	nsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -250,7 +289,7 @@ func (n *Namespace) DeleteFromBytes(data []byte) error {
 	return n.DeleteByName(ns.Name)
 }
 
-// delete namespace from file
+// DeleteFromFile delete namespace from yaml file
 func (n *Namespace) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -259,17 +298,17 @@ func (n *Namespace) DeleteFromFile(path string) error {
 	return n.DeleteFromBytes(data)
 }
 
-// delete namespace by name
+// DeleteByName delete namespace by name
 func (n *Namespace) DeleteByName(name string) error {
 	return n.clientset.CoreV1().Namespaces().Delete(n.ctx, name, n.Options.DeleteOptions)
 }
 
-// delete namespace by name, alias to "DeleteByName"
+// Delete delete namespace by name, alias to "DeleteByName"
 func (n *Namespace) Delete(name string) error {
 	return n.DeleteByName(name)
 }
 
-// get namespace from bytes
+// GetFromBytes get namespace from bytes
 func (n *Namespace) GetFromBytes(data []byte) (*corev1.Namespace, error) {
 	nsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -284,7 +323,7 @@ func (n *Namespace) GetFromBytes(data []byte) (*corev1.Namespace, error) {
 	return n.GetByName(ns.Name)
 }
 
-// get namespace from file
+// GetFromFile get namespace from yaml file
 func (n *Namespace) GetFromFile(path string) (*corev1.Namespace, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -293,12 +332,12 @@ func (n *Namespace) GetFromFile(path string) (*corev1.Namespace, error) {
 	return n.GetFromBytes(data)
 }
 
-// get namespace by name
+// GetByName get namespace by name
 func (n *Namespace) GetByName(name string) (*corev1.Namespace, error) {
 	return n.clientset.CoreV1().Namespaces().Get(n.ctx, name, n.Options.GetOptions)
 }
 
-// get namespace by name, alias to "GetByName"
+// Get get namespace by name, alias to "GetByName"
 func (n *Namespace) Get(name string) (*corev1.Namespace, error) {
 	return n.GetByName(name)
 }
@@ -320,7 +359,7 @@ func (n *Namespace) ListAll(labels string) (*corev1.NamespaceList, error) {
 	return n.ListByLabel("")
 }
 
-// watch namespace by name
+// WatchByName watch namespace by name
 func (n *Namespace) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -363,7 +402,7 @@ func (n *Namespace) WatchByName(name string,
 	}
 }
 
-// watch namespace by labelSelector
+// WatchByLabel watch namespace by labelSelector
 func (n *Namespace) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -409,7 +448,7 @@ func (n *Namespace) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch namespace by name, alias to "WatchByName"
+// Watch watch namespace by name, alias to "WatchByName"
 func (n *Namespace) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	n.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

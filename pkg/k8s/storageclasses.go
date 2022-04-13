@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -151,7 +153,18 @@ func (s *StorageClass) SetForceDelete(force bool) {
 	}
 }
 
-// create storageclass from bytes
+// CreateFromRaw create storageclass from map[string]interface{}
+func (s *StorageClass) CreateFromRaw(raw map[string]interface{}) (*storagev1.StorageClass, error) {
+	sc := &storagev1.StorageClass{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, sc)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.clientset.StorageV1().StorageClasses().Create(s.ctx, sc, s.Options.CreateOptions)
+}
+
+// CreateFromBytes create storageclass from bytes
 func (s *StorageClass) CreateFromBytes(data []byte) (*storagev1.StorageClass, error) {
 	scJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -166,7 +179,7 @@ func (s *StorageClass) CreateFromBytes(data []byte) (*storagev1.StorageClass, er
 	return s.clientset.StorageV1().StorageClasses().Create(s.ctx, sc, s.Options.CreateOptions)
 }
 
-// create storageclass from file
+// CreateFromFile create storageclass from yaml file
 func (s *StorageClass) CreateFromFile(path string) (*storagev1.StorageClass, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -175,12 +188,23 @@ func (s *StorageClass) CreateFromFile(path string) (*storagev1.StorageClass, err
 	return s.CreateFromBytes(data)
 }
 
-// create storageclass from file, alias to "CreateFromFile"
+// Create create storageclass from yaml file, alias to "CreateFromFile"
 func (s *StorageClass) Create(path string) (*storagev1.StorageClass, error) {
 	return s.CreateFromFile(path)
 }
 
-// update storageclass from bytes
+// UpdateFromRaw update storageclass from map[string]interface{}
+func (s *StorageClass) UpdateFromRaw(raw map[string]interface{}) (*storagev1.StorageClass, error) {
+	sc := &storagev1.StorageClass{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, sc)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.clientset.StorageV1().StorageClasses().Update(s.ctx, sc, s.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update storageclass from bytes
 func (s *StorageClass) UpdateFromBytes(data []byte) (*storagev1.StorageClass, error) {
 	scJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -196,7 +220,7 @@ func (s *StorageClass) UpdateFromBytes(data []byte) (*storagev1.StorageClass, er
 	return s.clientset.StorageV1().StorageClasses().Update(s.ctx, sc, s.Options.UpdateOptions)
 }
 
-// update storageclass from file
+// UpdateFromFile update storageclass from yaml file
 func (s *StorageClass) UpdateFromFile(path string) (*storagev1.StorageClass, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -205,12 +229,27 @@ func (s *StorageClass) UpdateFromFile(path string) (*storagev1.StorageClass, err
 	return s.UpdateFromBytes(data)
 }
 
-// update storageclass from file, alias to "UpdateFromFile"
+// Update update storageclass from yaml file, alias to "UpdateFromFile"
 func (s *StorageClass) Update(path string) (*storagev1.StorageClass, error) {
 	return s.UpdateFromFile(path)
 }
 
-// apply storageclass from bytes
+// ApplyFromRaw apply storageclass from map[string]interface{}
+func (s *StorageClass) ApplyFromRaw(raw map[string]interface{}) (*storagev1.StorageClass, error) {
+	sc := &storagev1.StorageClass{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, sc)
+	if err != nil {
+		return nil, err
+	}
+
+	sc, err = s.clientset.StorageV1().StorageClasses().Create(s.ctx, sc, s.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		sc, err = s.clientset.StorageV1().StorageClasses().Update(s.ctx, sc, s.Options.UpdateOptions)
+	}
+	return sc, err
+}
+
+// ApplyFromBytes apply storageclass from bytes
 func (s *StorageClass) ApplyFromBytes(data []byte) (sc *storagev1.StorageClass, err error) {
 	sc, err = s.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -219,7 +258,7 @@ func (s *StorageClass) ApplyFromBytes(data []byte) (sc *storagev1.StorageClass, 
 	return
 }
 
-// apply storageclass from file
+// ApplyFromFile apply storageclass from yaml file
 func (s *StorageClass) ApplyFromFile(path string) (sc *storagev1.StorageClass, err error) {
 	sc, err = s.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -228,12 +267,12 @@ func (s *StorageClass) ApplyFromFile(path string) (sc *storagev1.StorageClass, e
 	return
 }
 
-// apply storageclass from file, alias to "ApplyFromFile"
+// Apply apply storageclass from yaml file, alias to "ApplyFromFile"
 func (s *StorageClass) Apply(path string) (*storagev1.StorageClass, error) {
 	return s.ApplyFromFile(path)
 }
 
-// delete storageclass from bytes
+// DeleteFromBytes delete storageclass from bytes
 func (s *StorageClass) DeleteFromBytes(data []byte) error {
 	scJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -248,7 +287,7 @@ func (s *StorageClass) DeleteFromBytes(data []byte) error {
 	return s.DeleteByName(sc.Name)
 }
 
-// delete storageclass from file
+// DeleteFromFile delete storageclass from yaml file
 func (s *StorageClass) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -257,17 +296,17 @@ func (s *StorageClass) DeleteFromFile(path string) error {
 	return s.DeleteFromBytes(data)
 }
 
-// delete storageclass by name
+// DeleteByName delete storageclass by name
 func (s *StorageClass) DeleteByName(name string) error {
 	return s.clientset.StorageV1().StorageClasses().Delete(s.ctx, name, s.Options.DeleteOptions)
 }
 
-// delete storageclass by name, alias to "DeleteByName"
+// Delete delete storageclass by name, alias to "DeleteByName"
 func (s *StorageClass) Delete(name string) error {
 	return s.DeleteByName(name)
 }
 
-// get storageclass from bytes
+// GetFromBytes get storageclass from bytes
 func (s *StorageClass) GetFromBytes(data []byte) (*storagev1.StorageClass, error) {
 	scJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -283,7 +322,7 @@ func (s *StorageClass) GetFromBytes(data []byte) (*storagev1.StorageClass, error
 	return s.GetByName(sc.Name)
 }
 
-// get storageclass from file
+// GetFromFile get storageclass from yaml file
 func (s *StorageClass) GetFromFile(path string) (*storagev1.StorageClass, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -292,12 +331,12 @@ func (s *StorageClass) GetFromFile(path string) (*storagev1.StorageClass, error)
 	return s.GetFromBytes(data)
 }
 
-// get storageclass by name
+// GetByName get storageclass by name
 func (s *StorageClass) GetByName(name string) (*storagev1.StorageClass, error) {
 	return s.clientset.StorageV1().StorageClasses().Get(s.ctx, name, s.Options.GetOptions)
 }
 
-// get storageclass by name, alias to "GetByName
+// Get get storageclass by name, alias to "GetByName
 func (s *StorageClass) Get(name string) (*storagev1.StorageClass, error) {
 	return s.GetByName(name)
 }
@@ -319,7 +358,7 @@ func (s *StorageClass) ListAll() (*storagev1.StorageClassList, error) {
 	return s.ListByLabel("")
 }
 
-// watch storageclass by name
+// WatchByName watch storageclass by name
 func (s *StorageClass) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -362,7 +401,7 @@ func (s *StorageClass) WatchByName(name string,
 	}
 }
 
-// watch storageclass by labelSelector
+// WatchByLabel watch storageclass by labelSelector
 func (s *StorageClass) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -408,7 +447,7 @@ func (s *StorageClass) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch storageclass by name, alias to "WatchByName"
+// Watch watch storageclass by name, alias to "WatchByName"
 func (s *StorageClass) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return s.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

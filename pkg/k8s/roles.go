@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -171,7 +173,25 @@ func (r *Role) SetForceDelete(force bool) {
 	}
 }
 
-// create role from bytes
+// CreateFromRaw create role from map[string]interface{}
+func (r *Role) CreateFromRaw(raw map[string]interface{}) (*rbacv1.Role, error) {
+	role := &rbacv1.Role{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, role)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(role.Namespace) != 0 {
+		namespace = role.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	return r.clientset.RbacV1().Roles(namespace).Create(r.ctx, role, r.Options.CreateOptions)
+}
+
+// CreateFromBytes create role from bytes
 func (r *Role) CreateFromBytes(data []byte) (*rbacv1.Role, error) {
 	roleJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -194,7 +214,7 @@ func (r *Role) CreateFromBytes(data []byte) (*rbacv1.Role, error) {
 	return r.clientset.RbacV1().Roles(namespace).Create(r.ctx, role, r.Options.CreateOptions)
 }
 
-// create role from file
+// CreateFromFile create role from yaml file
 func (r *Role) CreateFromFile(path string) (*rbacv1.Role, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -203,12 +223,30 @@ func (r *Role) CreateFromFile(path string) (*rbacv1.Role, error) {
 	return r.CreateFromBytes(data)
 }
 
-// create role from file, alias to "CreateFromFile"
+// Create create role from yaml file, alias to "CreateFromFile"
 func (r *Role) Create(path string) (*rbacv1.Role, error) {
 	return r.CreateFromFile(path)
 }
 
-// update role from bytes
+// UpdateFromRaw update role from map[string]interface{}
+func (r *Role) UpdateFromRaw(raw map[string]interface{}) (*rbacv1.Role, error) {
+	role := &rbacv1.Role{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, role)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(role.Namespace) != 0 {
+		namespace = role.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	return r.clientset.RbacV1().Roles(namespace).Update(r.ctx, role, r.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update role from bytes
 func (r *Role) UpdateFromBytes(data []byte) (*rbacv1.Role, error) {
 	roleJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -231,7 +269,7 @@ func (r *Role) UpdateFromBytes(data []byte) (*rbacv1.Role, error) {
 	return r.clientset.RbacV1().Roles(namespace).Update(r.ctx, role, r.Options.UpdateOptions)
 }
 
-// update role from file
+// UpdateFromFile update role from yaml file
 func (r *Role) UpdateFromFile(path string) (*rbacv1.Role, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -240,12 +278,34 @@ func (r *Role) UpdateFromFile(path string) (*rbacv1.Role, error) {
 	return r.UpdateFromBytes(data)
 }
 
-// update role from file, alias to "UpdateFromFile"
+// Update update role from yaml file, alias to "UpdateFromFile"
 func (r *Role) Update(path string) (*rbacv1.Role, error) {
 	return r.UpdateFromFile(path)
 }
 
-// apply role from bytes
+// ApplyFromRaw apply role from map[string]interface{}
+func (r *Role) ApplyFromRaw(raw map[string]interface{}) (*rbacv1.Role, error) {
+	role := &rbacv1.Role{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, role)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(role.Namespace) != 0 {
+		namespace = role.Namespace
+	} else {
+		namespace = r.namespace
+	}
+
+	role, err = r.clientset.RbacV1().Roles(namespace).Create(r.ctx, role, r.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		role, err = r.clientset.RbacV1().Roles(namespace).Update(r.ctx, role, r.Options.UpdateOptions)
+	}
+	return role, err
+}
+
+// ApplyFromBytes apply role from bytes
 func (r *Role) ApplyFromBytes(data []byte) (role *rbacv1.Role, err error) {
 	role, err = r.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -254,7 +314,7 @@ func (r *Role) ApplyFromBytes(data []byte) (role *rbacv1.Role, err error) {
 	return
 }
 
-// apply role from file
+// ApplyFromFile apply role from yaml file
 func (r *Role) ApplyFromFile(path string) (role *rbacv1.Role, err error) {
 	role, err = r.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -263,12 +323,12 @@ func (r *Role) ApplyFromFile(path string) (role *rbacv1.Role, err error) {
 	return
 }
 
-// apply role from file, alias to "ApplyFromFile"
+// Apply apply role from yaml file, alias to "ApplyFromFile"
 func (r *Role) Apply(path string) (*rbacv1.Role, error) {
 	return r.ApplyFromFile(path)
 }
 
-// delete role from bytes
+// DeleteFromBytes delete role from bytes
 func (r *Role) DeleteFromBytes(data []byte) error {
 	roleJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -291,7 +351,7 @@ func (r *Role) DeleteFromBytes(data []byte) error {
 	return r.WithNamespace(namespace).DeleteByName(role.Name)
 }
 
-// delete role from file
+// DeleteFromFile delete role from yaml file
 func (r *Role) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -300,17 +360,17 @@ func (r *Role) DeleteFromFile(path string) error {
 	return r.DeleteFromBytes(data)
 }
 
-// delete role by name
+// DeleteByName delete role by name
 func (r *Role) DeleteByName(name string) error {
 	return r.clientset.RbacV1().Roles(r.namespace).Delete(r.ctx, name, r.Options.DeleteOptions)
 }
 
-// delete role by name, alias to "DeleteByName"
+// Delete delete role by name, alias to "DeleteByName"
 func (r *Role) Delete(name string) error {
 	return r.DeleteByName(name)
 }
 
-// get role from bytes
+// GetFromBytes get role from bytes
 func (r *Role) GetFromBytes(data []byte) (*rbacv1.Role, error) {
 	roleJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -333,7 +393,7 @@ func (r *Role) GetFromBytes(data []byte) (*rbacv1.Role, error) {
 	return r.WithNamespace(namespace).GetByName(role.Name)
 }
 
-// get role from file
+// GetFromFile get role from yamlfile
 func (r *Role) GetFromFile(path string) (*rbacv1.Role, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -342,12 +402,12 @@ func (r *Role) GetFromFile(path string) (*rbacv1.Role, error) {
 	return r.GetFromBytes(data)
 }
 
-// get role by name
+// GetByName get role by name
 func (r *Role) GetByName(name string) (*rbacv1.Role, error) {
 	return r.clientset.RbacV1().Roles(r.namespace).Get(r.ctx, name, r.Options.GetOptions)
 }
 
-// get role by name, alias to "GetByName"
+// Get get role by name, alias to "GetByName"
 func (r *Role) Get(name string) (*rbacv1.Role, error) {
 	return r.GetByName(name)
 }
@@ -374,7 +434,7 @@ func (r *Role) ListAll() (*rbacv1.RoleList, error) {
 	return r.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// watch roles by name
+// WatchByName watch roles by name
 func (r *Role) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -417,7 +477,7 @@ func (r *Role) WatchByName(name string,
 	}
 }
 
-// watch roles by labelSelector
+// WatchByLabel watch roles by labelSelector
 func (r *Role) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -463,7 +523,7 @@ func (r *Role) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch roles by name, alias to "WatchByName"
+// Watch watch roles by name, alias to "WatchByName"
 func (r *Role) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return r.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

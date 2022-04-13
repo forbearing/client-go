@@ -10,7 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -171,7 +173,25 @@ func (s *ServiceAccount) SetForceDelete(force bool) {
 	}
 }
 
-// create serviceaccount from bytes
+// CreateFromRaw create serviceaccount from map[string]interface{}
+func (s *ServiceAccount) CreateFromRaw(raw map[string]interface{}) (*corev1.ServiceAccount, error) {
+	sa := &corev1.ServiceAccount{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, sa)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(sa.Namespace) != 0 {
+		namespace = sa.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	return s.clientset.CoreV1().ServiceAccounts(namespace).Create(s.ctx, sa, s.Options.CreateOptions)
+}
+
+// CreateFromBytes create serviceaccount from bytes
 func (s *ServiceAccount) CreateFromBytes(data []byte) (*corev1.ServiceAccount, error) {
 	saJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -193,7 +213,7 @@ func (s *ServiceAccount) CreateFromBytes(data []byte) (*corev1.ServiceAccount, e
 	return s.clientset.CoreV1().ServiceAccounts(namespace).Create(s.ctx, sa, s.Options.CreateOptions)
 }
 
-// create serviceaccount from file
+// CreateFromFile create serviceaccount from yaml file
 func (s *ServiceAccount) CreateFromFile(path string) (*corev1.ServiceAccount, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -202,12 +222,30 @@ func (s *ServiceAccount) CreateFromFile(path string) (*corev1.ServiceAccount, er
 	return s.CreateFromBytes(data)
 }
 
-// create serviceaccount from file, alias to "CreateFromFile"
+// Create create serviceaccount from yaml file, alias to "CreateFromFile"
 func (s *ServiceAccount) Create(path string) (*corev1.ServiceAccount, error) {
 	return s.CreateFromFile(path)
 }
 
-// update serviceaccount from bytes
+// UpdateFromRaw update serviceaccount from map[string]interface{}
+func (s *ServiceAccount) UpdateFromRaw(raw map[string]interface{}) (*corev1.ServiceAccount, error) {
+	sa := &corev1.ServiceAccount{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, sa)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(sa.Namespace) != 0 {
+		namespace = sa.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	return s.clientset.CoreV1().ServiceAccounts(namespace).Update(s.ctx, sa, s.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update serviceaccount from bytes
 func (s *ServiceAccount) UpdateFromBytes(data []byte) (*corev1.ServiceAccount, error) {
 	saJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -230,7 +268,7 @@ func (s *ServiceAccount) UpdateFromBytes(data []byte) (*corev1.ServiceAccount, e
 	return s.clientset.CoreV1().ServiceAccounts(namespace).Update(s.ctx, sa, s.Options.UpdateOptions)
 }
 
-// update serviceaccount from file
+// UpdateFromFile update serviceaccount from yaml file
 func (s *ServiceAccount) UpdateFromFile(path string) (*corev1.ServiceAccount, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -239,12 +277,34 @@ func (s *ServiceAccount) UpdateFromFile(path string) (*corev1.ServiceAccount, er
 	return s.UpdateFromBytes(data)
 }
 
-// update serviceaccount from file, alias to "UpdateFromFile"
+// Update update serviceaccount from yaml file, alias to "UpdateFromFile"
 func (s *ServiceAccount) Update(path string) (*corev1.ServiceAccount, error) {
 	return s.UpdateFromFile(path)
 }
 
-// apply serviceaccount from file
+// ApplyFromRaw apply serviceaccount from map[string]interface{}
+func (s *ServiceAccount) ApplyFromRaw(raw map[string]interface{}) (*corev1.ServiceAccount, error) {
+	sa := &corev1.ServiceAccount{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, sa)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(sa.Namespace) != 0 {
+		namespace = sa.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	sa, err = s.clientset.CoreV1().ServiceAccounts(namespace).Create(s.ctx, sa, s.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		sa, err = s.clientset.CoreV1().ServiceAccounts(namespace).Update(s.ctx, sa, s.Options.UpdateOptions)
+	}
+	return sa, err
+}
+
+// ApplyFromBytes apply serviceaccount from file
 func (s *ServiceAccount) ApplyFromBytes(data []byte) (serviceaccount *corev1.ServiceAccount, err error) {
 	serviceaccount, err = s.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -253,7 +313,7 @@ func (s *ServiceAccount) ApplyFromBytes(data []byte) (serviceaccount *corev1.Ser
 	return
 }
 
-// apply serviceaccount from file
+// ApplyFromFile apply serviceaccount from yaml file
 func (s *ServiceAccount) ApplyFromFile(path string) (serviceaccount *corev1.ServiceAccount, err error) {
 	serviceaccount, err = s.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -262,12 +322,12 @@ func (s *ServiceAccount) ApplyFromFile(path string) (serviceaccount *corev1.Serv
 	return
 }
 
-// apply serviceaccount from file, alias to "ApplyFromFile"
+// Apply apply serviceaccount from yaml file, alias to "ApplyFromFile"
 func (s *ServiceAccount) Apply(path string) (*corev1.ServiceAccount, error) {
 	return s.ApplyFromFile(path)
 }
 
-// delete serviceaccount from bytes
+// DeleteFromBytes delete serviceaccount from bytes
 func (s *ServiceAccount) DeleteFromBytes(data []byte) error {
 	saJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -290,7 +350,7 @@ func (s *ServiceAccount) DeleteFromBytes(data []byte) error {
 	return s.WithNamespace(namespace).DeleteByName(sa.Name)
 }
 
-// delete serviceaccount from file
+// DeleteFromFile delete serviceaccount from yaml file
 func (s *ServiceAccount) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -299,17 +359,17 @@ func (s *ServiceAccount) DeleteFromFile(path string) error {
 	return s.DeleteFromBytes(data)
 }
 
-// delete serviceaccount by name
+// DeleteByName delete serviceaccount by name
 func (s *ServiceAccount) DeleteByName(name string) error {
 	return s.clientset.CoreV1().ServiceAccounts(s.namespace).Delete(s.ctx, name, s.Options.DeleteOptions)
 }
 
-// delete serviceaccount by name, alias to "DeleteByName"
+// Delete delete serviceaccount by name, alias to "DeleteByName"
 func (s *ServiceAccount) Delete(name string) (err error) {
 	return s.DeleteByName(name)
 }
 
-// get serviceaccount from bytes
+// GetFromBytes get serviceaccount from bytes
 func (s *ServiceAccount) GetFromBytes(data []byte) (*corev1.ServiceAccount, error) {
 	saJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -332,7 +392,7 @@ func (s *ServiceAccount) GetFromBytes(data []byte) (*corev1.ServiceAccount, erro
 	return s.WithNamespace(namespace).GetByName(sa.Name)
 }
 
-// get serviceaccount from file
+// GetFromFile get serviceaccount from yaml file
 func (s *ServiceAccount) GetFromFile(path string) (*corev1.ServiceAccount, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -341,12 +401,12 @@ func (s *ServiceAccount) GetFromFile(path string) (*corev1.ServiceAccount, error
 	return s.GetFromBytes(data)
 }
 
-// get serviceaccount by name
+// GetByName get serviceaccount by name
 func (s *ServiceAccount) GetByName(name string) (*corev1.ServiceAccount, error) {
 	return s.clientset.CoreV1().ServiceAccounts(s.namespace).Get(s.ctx, name, s.Options.GetOptions)
 }
 
-// get serviceaccount by name
+// Get get serviceaccount by name
 func (s *ServiceAccount) Get(name string) (*corev1.ServiceAccount, error) {
 	return s.GetByName(name)
 }
@@ -373,7 +433,7 @@ func (s *ServiceAccount) ListAll(namespace string) (*corev1.ServiceAccountList, 
 	return s.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// watch serviceaccounts by name
+// WatchByName watch serviceaccounts by name
 func (s *ServiceAccount) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -417,7 +477,7 @@ func (s *ServiceAccount) WatchByName(name string,
 	}
 }
 
-// watch serviceaccounts by labelSelector
+// WatchByLabel watch serviceaccounts by labelSelector
 func (s *ServiceAccount) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -465,7 +525,7 @@ func (s *ServiceAccount) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch serviceaccounts by name, alias to "WatchByName"
+// Watch watch serviceaccounts by name, alias to "WatchByName"
 func (s *ServiceAccount) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return s.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

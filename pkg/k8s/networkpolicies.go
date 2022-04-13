@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -170,7 +172,25 @@ func (n *NetworkPolicy) SetForceDelete(force bool) {
 	}
 }
 
-// create networkpolicy from bytes
+// CreateFromRaw create networkpolicy from map[string]interface{}
+func (n *NetworkPolicy) CreateFromRaw(raw map[string]interface{}) (*networkingv1.NetworkPolicy, error) {
+	netpol := &networkingv1.NetworkPolicy{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, netpol)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(netpol.Namespace) != 0 {
+		namespace = netpol.Namespace
+	} else {
+		namespace = n.namespace
+	}
+
+	return n.clientset.NetworkingV1().NetworkPolicies(namespace).Create(n.ctx, netpol, n.Options.CreateOptions)
+}
+
+// CreateFromBytes create networkpolicy from bytes
 func (n *NetworkPolicy) CreateFromBytes(data []byte) (*networkingv1.NetworkPolicy, error) {
 	netpolJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -193,7 +213,7 @@ func (n *NetworkPolicy) CreateFromBytes(data []byte) (*networkingv1.NetworkPolic
 	return n.clientset.NetworkingV1().NetworkPolicies(namespace).Create(n.ctx, netpol, n.Options.CreateOptions)
 }
 
-// create networkpolicy from file
+// CreateFromFile create networkpolicy from yaml file
 func (n *NetworkPolicy) CreateFromFile(path string) (*networkingv1.NetworkPolicy, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -202,12 +222,30 @@ func (n *NetworkPolicy) CreateFromFile(path string) (*networkingv1.NetworkPolicy
 	return n.CreateFromBytes(data)
 }
 
-// create networkpolicy from file, alias to "CreateFromFile"
+// Create create networkpolicy from yaml file, alias to "CreateFromFile"
 func (n *NetworkPolicy) Create(path string) (*networkingv1.NetworkPolicy, error) {
 	return n.CreateFromFile(path)
 }
 
-// update networkpolicy from bytes
+// UpdateFromRaw update networkpolicy from map[string]interface{}
+func (n *NetworkPolicy) UpdateFromRaw(raw map[string]interface{}) (*networkingv1.NetworkPolicy, error) {
+	netpol := &networkingv1.NetworkPolicy{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, netpol)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(netpol.Namespace) != 0 {
+		namespace = netpol.Namespace
+	} else {
+		namespace = n.namespace
+	}
+
+	return n.clientset.NetworkingV1().NetworkPolicies(namespace).Update(n.ctx, netpol, n.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update networkpolicy from bytes
 func (n *NetworkPolicy) UpdateFromBytes(data []byte) (*networkingv1.NetworkPolicy, error) {
 	netpolJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -228,7 +266,7 @@ func (n *NetworkPolicy) UpdateFromBytes(data []byte) (*networkingv1.NetworkPolic
 	return n.clientset.NetworkingV1().NetworkPolicies(namespace).Update(n.ctx, netpol, n.Options.UpdateOptions)
 }
 
-// update networkpolicy from file
+// UpdateFromFile update networkpolicy from yaml file
 func (n *NetworkPolicy) UpdateFromFile(path string) (*networkingv1.NetworkPolicy, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -237,12 +275,34 @@ func (n *NetworkPolicy) UpdateFromFile(path string) (*networkingv1.NetworkPolicy
 	return n.UpdateFromBytes(data)
 }
 
-// update networkpolicy from file, alias to "UpdateFromFile"
+// Update update networkpolicy from yaml file, alias to "UpdateFromFile"
 func (n *NetworkPolicy) Update(path string) (*networkingv1.NetworkPolicy, error) {
 	return n.UpdateFromFile(path)
 }
 
-// apply networkpolicy from bytes
+// ApplyFromRaw apply netpol from map[string]interface{}
+func (n *NetworkPolicy) ApplyFromRaw(raw map[string]interface{}) (*networkingv1.NetworkPolicy, error) {
+	netpol := &networkingv1.NetworkPolicy{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, netpol)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(netpol.Namespace) != 0 {
+		namespace = netpol.Namespace
+	} else {
+		namespace = n.namespace
+	}
+
+	netpol, err = n.clientset.NetworkingV1().NetworkPolicies(namespace).Create(n.ctx, netpol, n.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		netpol, err = n.clientset.NetworkingV1().NetworkPolicies(namespace).Update(n.ctx, netpol, n.Options.UpdateOptions)
+	}
+	return netpol, err
+}
+
+// ApplyFromBytes apply networkpolicy from bytes
 func (n *NetworkPolicy) ApplyFromBytes(data []byte) (netpol *networkingv1.NetworkPolicy, err error) {
 	netpol, err = n.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -251,7 +311,7 @@ func (n *NetworkPolicy) ApplyFromBytes(data []byte) (netpol *networkingv1.Networ
 	return
 }
 
-// apply netpol from file
+// ApplyFromFile apply netpol from yaml file
 func (n *NetworkPolicy) ApplyFromFile(path string) (netpol *networkingv1.NetworkPolicy, err error) {
 	netpol, err = n.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -260,12 +320,12 @@ func (n *NetworkPolicy) ApplyFromFile(path string) (netpol *networkingv1.Network
 	return
 }
 
-// apply networkpolicy from file, alias to "ApplyFromFile"
+// Apply apply networkpolicy from yaml file, alias to "ApplyFromFile"
 func (n *NetworkPolicy) Apply(path string) (*networkingv1.NetworkPolicy, error) {
 	return n.ApplyFromFile(path)
 }
 
-// delete networkpolicy from bytes
+// DeleteFromBytes delete networkpolicy from bytes
 func (n *NetworkPolicy) DeleteFromBytes(data []byte) error {
 	netpolJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -288,7 +348,7 @@ func (n *NetworkPolicy) DeleteFromBytes(data []byte) error {
 	return n.WithNamespace(namespace).DeleteByName(netpol.Name)
 }
 
-// delete networkpolicy from file
+// DeleteFromFile delete networkpolicy from yaml file
 func (n *NetworkPolicy) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -297,17 +357,17 @@ func (n *NetworkPolicy) DeleteFromFile(path string) error {
 	return n.DeleteFromBytes(data)
 }
 
-// delete networkpolicy by name
+// DeleteByName delete networkpolicy by name
 func (n *NetworkPolicy) DeleteByName(name string) error {
 	return n.clientset.NetworkingV1().NetworkPolicies(n.namespace).Delete(n.ctx, name, n.Options.DeleteOptions)
 }
 
-// delete networkpolicy by name, alias to "DeleteByName"
+// Delete delete networkpolicy by name, alias to "DeleteByName"
 func (n *NetworkPolicy) Delete(name string) error {
 	return n.DeleteByName(name)
 }
 
-// get networkpolicy from bytes
+// GetFromBytes get networkpolicy from bytes
 func (n *NetworkPolicy) GetFromBytes(data []byte) (*networkingv1.NetworkPolicy, error) {
 	netpolJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -330,7 +390,7 @@ func (n *NetworkPolicy) GetFromBytes(data []byte) (*networkingv1.NetworkPolicy, 
 	return n.WithNamespace(namespace).GetByName(netpol.Name)
 }
 
-// get networkpolicy from file
+// GetFromBytes get networkpolicy from yaml file
 func (n *NetworkPolicy) GetFromFile(path string) (*networkingv1.NetworkPolicy, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -339,12 +399,12 @@ func (n *NetworkPolicy) GetFromFile(path string) (*networkingv1.NetworkPolicy, e
 	return n.GetFromBytes(data)
 }
 
-// get networkpolicy by name
+// GetByName get networkpolicy by name
 func (n *NetworkPolicy) GetByName(name string) (*networkingv1.NetworkPolicy, error) {
 	return n.clientset.NetworkingV1().NetworkPolicies(n.namespace).Get(n.ctx, name, n.Options.GetOptions)
 }
 
-// get networkpolicy by name, alias to "GetByName"
+// Get get networkpolicy by name, alias to "GetByName"
 func (n *NetworkPolicy) Get(name string) (*networkingv1.NetworkPolicy, error) {
 	return n.GetByName(name)
 }
@@ -371,7 +431,7 @@ func (n *NetworkPolicy) ListAll() (*networkingv1.NetworkPolicyList, error) {
 	return n.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// watch networkpolicyies by name
+// WatchByName watch networkpolicyies by name
 func (n *NetworkPolicy) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -414,7 +474,7 @@ func (n *NetworkPolicy) WatchByName(name string,
 	}
 }
 
-// watch networkpolicies by labelSelector
+// WatchByLabel watch networkpolicies by labelSelector
 func (n *NetworkPolicy) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -460,7 +520,7 @@ func (n *NetworkPolicy) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch networkpolicies by name, alias to "WatchByName"
+// Watch watch networkpolicies by name, alias to "WatchByName"
 func (n *NetworkPolicy) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return n.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

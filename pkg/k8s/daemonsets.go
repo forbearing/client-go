@@ -12,7 +12,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -39,7 +41,7 @@ type DaemonSet struct {
 	sync.Mutex
 }
 
-// new a daemonset handler from kubeconfig or in-cluster config
+// NewDeployment new a daemonset handler from kubeconfig or in-cluster config
 func NewDaemonSet(ctx context.Context, namespace, kubeconfig string) (daemonset *DaemonSet, err error) {
 	var (
 		config          *rest.Config
@@ -174,7 +176,25 @@ func (d *DaemonSet) SetForceDelete(force bool) {
 	}
 }
 
-// create daemonset from bytes
+// CreateFromRaw create daemonset from map[string]interface{}
+func (d *DaemonSet) CreateFromRaw(raw map[string]interface{}) (*appsv1.DaemonSet, error) {
+	daemonset := &appsv1.DaemonSet{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, daemonset)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(daemonset.Namespace) != 0 {
+		namespace = daemonset.Namespace
+	} else {
+		namespace = d.namespace
+	}
+
+	return d.clientset.AppsV1().DaemonSets(namespace).Create(d.ctx, daemonset, d.Options.CreateOptions)
+}
+
+// CreateFromBytes create daemonset from bytes
 func (d *DaemonSet) CreateFromBytes(data []byte) (*appsv1.DaemonSet, error) {
 	dsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -196,7 +216,7 @@ func (d *DaemonSet) CreateFromBytes(data []byte) (*appsv1.DaemonSet, error) {
 	return d.clientset.AppsV1().DaemonSets(namespace).Create(d.ctx, daemonset, d.Options.CreateOptions)
 }
 
-// create daemonset from file
+// CreateFromFile create daemonset from yaml file
 func (d *DaemonSet) CreateFromFile(path string) (*appsv1.DaemonSet, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -205,12 +225,30 @@ func (d *DaemonSet) CreateFromFile(path string) (*appsv1.DaemonSet, error) {
 	return d.CreateFromBytes(data)
 }
 
-// create daemonset from file, alias to "CreateFromFile"
+// Create create daemonset from yaml file, alias to "CreateFromFile"
 func (d *DaemonSet) Create(path string) (*appsv1.DaemonSet, error) {
 	return d.CreateFromFile(path)
 }
 
-// update daemonset from bytes
+// UpdateFromRaw update daemonset from map[string]interface{}
+func (d *DaemonSet) UpdateFromRaw(raw map[string]interface{}) (*appsv1.DaemonSet, error) {
+	daemonset := &appsv1.DaemonSet{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, daemonset)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(daemonset.Namespace) != 0 {
+		namespace = daemonset.Namespace
+	} else {
+		namespace = d.namespace
+	}
+
+	return d.clientset.AppsV1().DaemonSets(namespace).Update(d.ctx, daemonset, d.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update daemonset from bytes
 func (d *DaemonSet) UpdateFromBytes(data []byte) (*appsv1.DaemonSet, error) {
 	dsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -233,7 +271,7 @@ func (d *DaemonSet) UpdateFromBytes(data []byte) (*appsv1.DaemonSet, error) {
 	return d.clientset.AppsV1().DaemonSets(namespace).Update(d.ctx, daemonset, d.Options.UpdateOptions)
 }
 
-// update daemonset from file
+// UpdateFromFile update daemonset from yaml file
 func (d *DaemonSet) UpdateFromFile(path string) (*appsv1.DaemonSet, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -242,12 +280,34 @@ func (d *DaemonSet) UpdateFromFile(path string) (*appsv1.DaemonSet, error) {
 	return d.UpdateFromBytes(data)
 }
 
-// update daemonset from file, alias to "UpdateFromFile"
+// Update update daemonset from file, alias to "UpdateFromFile"
 func (d *DaemonSet) Update(path string) (*appsv1.DaemonSet, error) {
 	return d.UpdateFromFile(path)
 }
 
-// apply daemonset from bytes
+// ApplyFromRaw apply daemonset from map[string]interface{}
+func (d *DaemonSet) ApplyFromRaw(raw map[string]interface{}) (*appsv1.DaemonSet, error) {
+	pod := &appsv1.DaemonSet{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, pod)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(pod.Namespace) != 0 {
+		namespace = pod.Namespace
+	} else {
+		namespace = d.namespace
+	}
+
+	pod, err = d.clientset.AppsV1().DaemonSets(namespace).Create(d.ctx, pod, d.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		pod, err = d.clientset.AppsV1().DaemonSets(namespace).Update(d.ctx, pod, d.Options.UpdateOptions)
+	}
+	return pod, err
+}
+
+// ApplyFromBytes apply daemonset from bytes
 func (d *DaemonSet) ApplyFromBytes(data []byte) (daemonset *appsv1.DaemonSet, err error) {
 	daemonset, err = d.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -256,7 +316,7 @@ func (d *DaemonSet) ApplyFromBytes(data []byte) (daemonset *appsv1.DaemonSet, er
 	return
 }
 
-// apply daemonset from file
+// ApplyFromFile apply daemonset from yaml file
 func (d *DaemonSet) ApplyFromFile(path string) (daemonset *appsv1.DaemonSet, err error) {
 	daemonset, err = d.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -265,12 +325,12 @@ func (d *DaemonSet) ApplyFromFile(path string) (daemonset *appsv1.DaemonSet, err
 	return
 }
 
-// apply daemonset from file, alias to "ApplyFromFile"
+// Apply apply daemonset from yaml file, alias to "ApplyFromFile"
 func (d *DaemonSet) Apply(path string) (*appsv1.DaemonSet, error) {
 	return d.ApplyFromFile(path)
 }
 
-// delete daemonset from bytes
+// DeleteFromBytes delete daemonset from bytes
 func (d *DaemonSet) DeleteFromBytes(data []byte) error {
 	dsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -293,7 +353,7 @@ func (d *DaemonSet) DeleteFromBytes(data []byte) error {
 	return d.WithNamespace(namespace).DeleteByName(daemonset.Name)
 }
 
-// delete daemonset from file
+// DeleteFromFile delete daemonset from yaml file
 func (d *DaemonSet) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -302,17 +362,17 @@ func (d *DaemonSet) DeleteFromFile(path string) error {
 	return d.DeleteFromBytes(data)
 }
 
-// delete daemonset by name
+// DeleteByName delete daemonset by name
 func (d *DaemonSet) DeleteByName(name string) error {
 	return d.clientset.AppsV1().DaemonSets(d.namespace).Delete(d.ctx, name, d.Options.DeleteOptions)
 }
 
-// delete daemonset by name, alias to "DeleteByName"
+// Delete delete daemonset by name, alias to "DeleteByName"
 func (d *DaemonSet) Delete(name string) error {
 	return d.DeleteByName(name)
 }
 
-// get daemonset from bytes
+// GetFromBytes get daemonset from bytes
 func (d *DaemonSet) GetFromBytes(data []byte) (*appsv1.DaemonSet, error) {
 	dsJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -334,7 +394,7 @@ func (d *DaemonSet) GetFromBytes(data []byte) (*appsv1.DaemonSet, error) {
 	return d.WithNamespace(namespace).GetByName(daemonset.Name)
 }
 
-// get daemonset from file
+// GetFromFile get daemonset from yaml file
 func (d *DaemonSet) GetFromFile(path string) (*appsv1.DaemonSet, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -344,12 +404,12 @@ func (d *DaemonSet) GetFromFile(path string) (*appsv1.DaemonSet, error) {
 	return d.GetFromBytes(data)
 }
 
-// get daemonset by name
+// GetByName get daemonset by name
 func (d *DaemonSet) GetByName(name string) (*appsv1.DaemonSet, error) {
 	return d.clientset.AppsV1().DaemonSets(d.namespace).Get(d.ctx, name, d.Options.GetOptions)
 }
 
-// get daemonset by name, alias to "GetByName"
+// Get get daemonset by name, alias to "GetByName"
 func (d *DaemonSet) Get(name string) (*appsv1.DaemonSet, error) {
 	return d.GetByName(name)
 }
@@ -376,7 +436,7 @@ func (d *DaemonSet) ListAll() (*appsv1.DaemonSetList, error) {
 	return d.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// get daemonset all pods
+// GetPods get daemonset all pods
 func (d *DaemonSet) GetPods(name string) (podList []string, err error) {
 	// 检查 daemonset 是否就绪
 	err = d.WaitReady(name, true)
@@ -408,7 +468,7 @@ func (d *DaemonSet) GetPods(name string) (podList []string, err error) {
 	return
 }
 
-// get daemonset pv by name
+// GetPV get daemonset pv by name
 func (d *DaemonSet) GetPV(name string) (pvList []string, err error) {
 	var (
 		pvcHandler *PersistentVolumeClaim
@@ -444,7 +504,7 @@ func (d *DaemonSet) GetPV(name string) (pvList []string, err error) {
 	return
 }
 
-// get daemonset pvc by name
+// GetPVC get daemonset pvc by name
 func (d *DaemonSet) GetPVC(name string) (pvcList []string, err error) {
 	err = d.WaitReady(name, true)
 	if err != nil {
@@ -467,7 +527,7 @@ func (d *DaemonSet) GetPVC(name string) (pvcList []string, err error) {
 	return
 }
 
-// check if the daemonset is ready
+// IsReady check if the daemonset is ready
 func (d *DaemonSet) IsReady(name string) bool {
 	daemonset, err := d.Get(name)
 	if err != nil {
@@ -486,7 +546,7 @@ func (d *DaemonSet) IsReady(name string) bool {
 	return false
 }
 
-// wait the daemonset to be th ready status
+// WaitReady wait the daemonset to be th ready status
 func (d *DaemonSet) WaitReady(name string, check bool) (err error) {
 	var (
 		watcher watch.Interface
@@ -531,7 +591,7 @@ func (d *DaemonSet) WaitReady(name string, check bool) (err error) {
 	}
 }
 
-// watch daemonsets by name
+// WatchByName watch daemonsets by name
 func (d *DaemonSet) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -575,7 +635,7 @@ func (d *DaemonSet) WatchByName(name string,
 	}
 }
 
-// watch daemonsets by labelSelector
+// WatchByLabel watch daemonsets by labelSelector
 func (d *DaemonSet) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -622,7 +682,7 @@ func (d *DaemonSet) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch daemonsets by name, alias to "WatchByName"
+// Watch watch daemonsets by name, alias to "WatchByName"
 func (d *DaemonSet) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return d.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

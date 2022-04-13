@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -169,7 +171,25 @@ func (p *PersistentVolumeClaim) SetForceDelete(force bool) {
 	}
 }
 
-// create persistentvolumeclaim from bytes
+// CreateFromRaw create persistentvolumeclaim from map[string]interface{}
+func (p *PersistentVolumeClaim) CreateFromRaw(raw map[string]interface{}) (*corev1.PersistentVolumeClaim, error) {
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, pvc)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(pvc.Namespace) != 0 {
+		namespace = pvc.Namespace
+	} else {
+		namespace = p.namespace
+	}
+
+	return p.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(p.ctx, pvc, p.Options.CreateOptions)
+}
+
+// CreateFromBytes create persistentvolumeclaim from bytes
 func (p *PersistentVolumeClaim) CreateFromBytes(data []byte) (*corev1.PersistentVolumeClaim, error) {
 	pvcJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -192,7 +212,7 @@ func (p *PersistentVolumeClaim) CreateFromBytes(data []byte) (*corev1.Persistent
 	return p.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(p.ctx, pvc, p.Options.CreateOptions)
 }
 
-// create persistentvolumeclaim from file
+// CreateFromFile create persistentvolumeclaim from yaml file
 func (p *PersistentVolumeClaim) CreateFromFile(path string) (*corev1.PersistentVolumeClaim, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -201,12 +221,30 @@ func (p *PersistentVolumeClaim) CreateFromFile(path string) (*corev1.PersistentV
 	return p.CreateFromBytes(data)
 }
 
-// create persistentvolumeclaim from file,alias to "CreateFromFile"
+// Create create persistentvolumeclaim from yaml file, alias to "CreateFromFile"
 func (p *PersistentVolumeClaim) Create(path string) (*corev1.PersistentVolumeClaim, error) {
 	return p.CreateFromFile(path)
 }
 
-// update persistentvolumeclaim from bytes
+// UpdateFromRaw update persistentvolumeclaim from map[string]interface{}
+func (p *PersistentVolumeClaim) UpdateFromRaw(raw map[string]interface{}) (*corev1.PersistentVolumeClaim, error) {
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, pvc)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(pvc.Namespace) != 0 {
+		namespace = pvc.Namespace
+	} else {
+		namespace = p.namespace
+	}
+
+	return p.clientset.CoreV1().PersistentVolumeClaims(namespace).Update(p.ctx, pvc, p.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update persistentvolumeclaim from bytes
 func (p *PersistentVolumeClaim) UpdateFromBytes(data []byte) (*corev1.PersistentVolumeClaim, error) {
 	pvcJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -229,7 +267,7 @@ func (p *PersistentVolumeClaim) UpdateFromBytes(data []byte) (*corev1.Persistent
 	return p.clientset.CoreV1().PersistentVolumeClaims(namespace).Update(p.ctx, pvc, p.Options.UpdateOptions)
 }
 
-// update persistentvolumeclaim from file
+// UpdateFromFile update persistentvolumeclaim from yaml file
 func (p *PersistentVolumeClaim) UpdateFromFile(path string) (*corev1.PersistentVolumeClaim, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -238,12 +276,34 @@ func (p *PersistentVolumeClaim) UpdateFromFile(path string) (*corev1.PersistentV
 	return p.UpdateFromBytes(data)
 }
 
-// update persistentvolumeclaim from file, alias to "UpdateFromFile"
+// Update update persistentvolumeclaim from file, alias to "UpdateFromFile"
 func (p *PersistentVolumeClaim) Update(path string) (*corev1.PersistentVolumeClaim, error) {
 	return p.UpdateFromFile(path)
 }
 
-// apply persistentvolumeclaim from bytes
+// ApplyFromRaw apply persistentvolumeclaim from map[string]interface{}
+func (p *PersistentVolumeClaim) ApplyFromRaw(raw map[string]interface{}) (*corev1.PersistentVolumeClaim, error) {
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, pvc)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(pvc.Namespace) != 0 {
+		namespace = pvc.Namespace
+	} else {
+		namespace = p.namespace
+	}
+
+	pvc, err = p.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(p.ctx, pvc, p.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		pvc, err = p.clientset.CoreV1().PersistentVolumeClaims(namespace).Update(p.ctx, pvc, p.Options.UpdateOptions)
+	}
+	return pvc, err
+}
+
+// ApplyFromBytes apply persistentvolumeclaim from bytes
 func (p *PersistentVolumeClaim) ApplyFromBytes(data []byte) (pvc *corev1.PersistentVolumeClaim, err error) {
 	pvc, err = p.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -252,7 +312,7 @@ func (p *PersistentVolumeClaim) ApplyFromBytes(data []byte) (pvc *corev1.Persist
 	return
 }
 
-// apply persistentvolumeclaim from file
+// ApplyFromFile apply persistentvolumeclaim from yaml file
 func (p *PersistentVolumeClaim) ApplyFromFile(path string) (pvc *corev1.PersistentVolumeClaim, err error) {
 	pvc, err = p.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -261,12 +321,12 @@ func (p *PersistentVolumeClaim) ApplyFromFile(path string) (pvc *corev1.Persiste
 	return
 }
 
-// apply persistentvolumeclaim from file, alias to "ApplyFromFile"
+// Apply apply persistentvolumeclaim from yaml file, alias to "ApplyFromFile"
 func (p *PersistentVolumeClaim) Apply(path string) (*corev1.PersistentVolumeClaim, error) {
 	return p.ApplyFromFile(path)
 }
 
-// delete persistentvolumeclaim from bytes
+// DeleteFromBytes delete persistentvolumeclaim from bytes
 func (p *PersistentVolumeClaim) DeleteFromBytes(data []byte) error {
 	pvcJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -288,7 +348,7 @@ func (p *PersistentVolumeClaim) DeleteFromBytes(data []byte) error {
 	return p.WithNamespace(namespace).DeleteByName(pvc.Name)
 }
 
-// delete persistentvolumeclaim from file
+// DeleteFromFile delete persistentvolumeclaim from yaml file
 func (p *PersistentVolumeClaim) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -297,17 +357,17 @@ func (p *PersistentVolumeClaim) DeleteFromFile(path string) error {
 	return p.DeleteFromBytes(data)
 }
 
-// delete persistentvolumeclaim by name
+// DeleteByName delete persistentvolumeclaim by name
 func (p *PersistentVolumeClaim) DeleteByName(name string) error {
 	return p.clientset.CoreV1().PersistentVolumeClaims(p.namespace).Delete(p.ctx, name, p.Options.DeleteOptions)
 }
 
-// delete persistentvolumeclaim by name, alias to "DeleteByName"
+// Delete delete persistentvolumeclaim by name, alias to "DeleteByName"
 func (p *PersistentVolumeClaim) Delete(name string) error {
 	return p.DeleteByName(name)
 }
 
-// get persistentvolumeclaim from bytes
+// GetFromBytes get persistentvolumeclaim from bytes
 func (p *PersistentVolumeClaim) GetFromBytes(data []byte) (*corev1.PersistentVolumeClaim, error) {
 	pvcJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -329,7 +389,7 @@ func (p *PersistentVolumeClaim) GetFromBytes(data []byte) (*corev1.PersistentVol
 	return p.WithNamespace(namespace).GetByName(pvc.Name)
 }
 
-// get persistentvolumeclaim from file
+// GetFromFile get persistentvolumeclaim from yaml file
 func (p *PersistentVolumeClaim) GetFromFile(path string) (*corev1.PersistentVolumeClaim, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -338,12 +398,12 @@ func (p *PersistentVolumeClaim) GetFromFile(path string) (*corev1.PersistentVolu
 	return p.GetFromBytes(data)
 }
 
-// get persistentvolumeclaim by name
+// GetByName get persistentvolumeclaim by name
 func (p *PersistentVolumeClaim) GetByName(name string) (*corev1.PersistentVolumeClaim, error) {
 	return p.clientset.CoreV1().PersistentVolumeClaims(p.namespace).Get(p.ctx, name, p.Options.GetOptions)
 }
 
-// get persistentvolumeclaim by name, alias to "GetByName"
+// Get get persistentvolumeclaim by name, alias to "GetByName"
 func (p *PersistentVolumeClaim) Get(name string) (*corev1.PersistentVolumeClaim, error) {
 	return p.GetByName(name)
 }
@@ -370,7 +430,7 @@ func (p *PersistentVolumeClaim) ListAll() (*corev1.PersistentVolumeClaimList, er
 	return p.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// get the pv name of the persistentvolumeclaim
+// GetPV get the pv name of the persistentvolumeclaim
 func (p *PersistentVolumeClaim) GetPV(name string) (pv string, err error) {
 	pvc, err := p.Get(name)
 	if err != nil {
@@ -379,6 +439,8 @@ func (p *PersistentVolumeClaim) GetPV(name string) (pv string, err error) {
 	pv = pvc.Spec.VolumeName
 	return
 }
+
+// GetStorageClass get the storageclass name of the persistentvolumeclaim
 func (p *PersistentVolumeClaim) GetStorageClass(name string) (sc string, err error) {
 	pvc, err := p.Get(name)
 	if err != nil {
@@ -388,7 +450,7 @@ func (p *PersistentVolumeClaim) GetStorageClass(name string) (sc string, err err
 	return
 }
 
-// get the access modes of the persistentvolumeclaim
+// GetAccessModes get the access modes of the persistentvolumeclaim
 func (p *PersistentVolumeClaim) GetAccessModes(name string) (accessModes []string, err error) {
 	pvc, err := p.Get(name)
 	if err != nil {
@@ -400,7 +462,7 @@ func (p *PersistentVolumeClaim) GetAccessModes(name string) (accessModes []strin
 	return
 }
 
-// get the storage capacity of the persistentvolumeclaim
+// GetCapacity get the storage capacity of the persistentvolumeclaim
 func (p *PersistentVolumeClaim) GetCapacity(name string) (capacity int64, err error) {
 	pvc, err := p.Get(name)
 	if err != nil {
@@ -419,7 +481,7 @@ func (p *PersistentVolumeClaim) GetCapacity(name string) (capacity int64, err er
 	return
 }
 
-// get the status phase of the persistentvolumeclaim
+// GetPhase get the status phase of the persistentvolumeclaim
 func (p *PersistentVolumeClaim) GetPhase(name string) (phase string, err error) {
 	pvc, err := p.Get(name)
 	if err != nil {
@@ -429,7 +491,7 @@ func (p *PersistentVolumeClaim) GetPhase(name string) (phase string, err error) 
 	return
 }
 
-// watch persistentvolumeclaim by name
+// WatchByName watch persistentvolumeclaim by name
 func (p *PersistentVolumeClaim) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -472,7 +534,7 @@ func (p *PersistentVolumeClaim) WatchByName(name string,
 	}
 }
 
-// watch persistentvolumeclaim by labelSelector
+// WatchByLabel watch persistentvolumeclaim by labelSelector
 func (p *PersistentVolumeClaim) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -518,7 +580,7 @@ func (p *PersistentVolumeClaim) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch persistentvolumeclaim by name, alias to "WatchByName"
+// Watch watch persistentvolumeclaim by name, alias to "WatchByName"
 func (p *PersistentVolumeClaim) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return p.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

@@ -215,7 +215,25 @@ func (d *Deployment) SetForceDelete(force bool) {
 	}
 }
 
-// create deployment from bytes
+// CreateFromRaw create deployment from map[string]interface{}
+func (d *Deployment) CreateFromRaw(raw map[string]interface{}) (*appsv1.Deployment, error) {
+	deploy := &appsv1.Deployment{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, deploy)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(deploy.Namespace) != 0 {
+		namespace = deploy.Namespace
+	} else {
+		namespace = d.namespace
+	}
+
+	return d.clientset.AppsV1().Deployments(namespace).Create(d.ctx, deploy, d.Options.CreateOptions)
+}
+
+// CreateFromBytes create deployment from bytes
 func (d *Deployment) CreateFromBytes(data []byte) (*appsv1.Deployment, error) {
 	deployJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -238,7 +256,7 @@ func (d *Deployment) CreateFromBytes(data []byte) (*appsv1.Deployment, error) {
 	return d.clientset.AppsV1().Deployments(namespace).Create(d.ctx, deploy, d.Options.CreateOptions)
 }
 
-// create deployment from file
+// CreateFromFile create deployment from yaml file
 func (d *Deployment) CreateFromFile(path string) (*appsv1.Deployment, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -247,12 +265,30 @@ func (d *Deployment) CreateFromFile(path string) (*appsv1.Deployment, error) {
 	return d.CreateFromBytes(data)
 }
 
-// create deployment from file, alias to "CreateFromBytes"
+// Create create deployment from yaml file, alias to "CreateFromBytes"
 func (d *Deployment) Create(path string) (*appsv1.Deployment, error) {
 	return d.CreateFromFile(path)
 }
 
-// update deploy from bytes
+// UpdateFromRaw update deployment from map[string]interface{}
+func (d *Deployment) UpdateFromRaw(raw map[string]interface{}) (*appsv1.Deployment, error) {
+	deploy := &appsv1.Deployment{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, deploy)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(deploy.Namespace) != 0 {
+		namespace = deploy.Namespace
+	} else {
+		namespace = d.namespace
+	}
+
+	return d.clientset.AppsV1().Deployments(namespace).Update(d.ctx, deploy, d.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update deploy from bytes
 func (d *Deployment) UpdateFromBytes(data []byte) (*appsv1.Deployment, error) {
 	deployJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -275,7 +311,7 @@ func (d *Deployment) UpdateFromBytes(data []byte) (*appsv1.Deployment, error) {
 	return d.clientset.AppsV1().Deployments(namespace).Update(d.ctx, deploy, d.Options.UpdateOptions)
 }
 
-// update deployment from file
+// UpdateFromFile update deployment from yaml file
 func (d *Deployment) UpdateFromFile(path string) (*appsv1.Deployment, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -284,12 +320,34 @@ func (d *Deployment) UpdateFromFile(path string) (*appsv1.Deployment, error) {
 	return d.UpdateFromBytes(data)
 }
 
-// update deployment from file, alias to "UpdateFromFile"
+// Update update deployment from yaml file, alias to "UpdateFromFile"
 func (d *Deployment) Update(path string) (deploy *appsv1.Deployment, err error) {
 	return d.UpdateFromFile(path)
 }
 
-// apply deployment from bytes
+// ApplyFromRaw apply deployment from map[string]interface{}
+func (d *Deployment) ApplyFromRaw(raw map[string]interface{}) (*appsv1.Deployment, error) {
+	deploy := &appsv1.Deployment{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, deploy)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(deploy.Namespace) != 0 {
+		namespace = deploy.Namespace
+	} else {
+		namespace = d.namespace
+	}
+
+	deploy, err = d.clientset.AppsV1().Deployments(namespace).Create(d.ctx, deploy, d.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		deploy, err = d.clientset.AppsV1().Deployments(namespace).Update(d.ctx, deploy, d.Options.UpdateOptions)
+	}
+	return deploy, err
+}
+
+// ApplyFromBytes pply deployment from bytes
 func (d *Deployment) ApplyFromBytes(data []byte) (deploy *appsv1.Deployment, err error) {
 	deploy, err = d.CreateFromBytes(data)
 	if k8serrors.IsAlreadyExists(err) {
@@ -298,7 +356,7 @@ func (d *Deployment) ApplyFromBytes(data []byte) (deploy *appsv1.Deployment, err
 	return
 }
 
-// apply deployment from file
+// ApplyFromFile apply deployment from yaml file
 func (d *Deployment) ApplyFromFile(path string) (deploy *appsv1.Deployment, err error) {
 	deploy, err = d.CreateFromFile(path)
 	if k8serrors.IsAlreadyExists(err) { // if deployment already exist, update it.
@@ -307,7 +365,7 @@ func (d *Deployment) ApplyFromFile(path string) (deploy *appsv1.Deployment, err 
 	return
 }
 
-// apply deployment from file, alias to "ApplyFromFile"
+// ApplyFromFile apply deployment from yaml file, alias to "ApplyFromFile"
 func (d *Deployment) Apply(path string) (*appsv1.Deployment, error) {
 	return d.ApplyFromFile(path)
 }
@@ -433,7 +491,7 @@ func (d *Deployment) Apply2(path string) (deploy *appsv1.Deployment, err error) 
 	return deploy, nil
 }
 
-// delete deploy from bytes
+// DeleteFromBytes delete deploy from bytes
 func (d *Deployment) DeleteFromBytes(data []byte) error {
 	deployJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -456,7 +514,7 @@ func (d *Deployment) DeleteFromBytes(data []byte) error {
 	return d.WithNamespace(namespace).DeleteByName(deploy.Name)
 }
 
-// delete deployment from file
+// DeleteFromFile delete deployment from yaml file
 func (d *Deployment) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -465,17 +523,17 @@ func (d *Deployment) DeleteFromFile(path string) error {
 	return d.DeleteFromBytes(data)
 }
 
-// delete deployment by name
+// DeleteByName delete deployment by name
 func (d *Deployment) DeleteByName(name string) (err error) {
 	return d.clientset.AppsV1().Deployments(d.namespace).Delete(d.ctx, name, d.Options.DeleteOptions)
 }
 
-// delete deployment by name, alias to "DeleteByName"
+// Delete delete deployment by name, alias to "DeleteByName"
 func (d *Deployment) Delete(name string) error {
 	return d.DeleteByName(name)
 }
 
-// get deployment from bytes
+// GetFromBytes get deployment from bytes
 func (d *Deployment) GetFromBytes(data []byte) (*appsv1.Deployment, error) {
 
 	deployJson, err := yaml.ToJSON(data)
@@ -499,7 +557,7 @@ func (d *Deployment) GetFromBytes(data []byte) (*appsv1.Deployment, error) {
 	return d.WithNamespace(namespace).GetByName(deploy.Name)
 }
 
-// get deployment from file
+// GetFromFile get deployment from yaml file
 func (d *Deployment) GetFromFile(path string) (*appsv1.Deployment, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -508,12 +566,12 @@ func (d *Deployment) GetFromFile(path string) (*appsv1.Deployment, error) {
 	return d.GetFromBytes(data)
 }
 
-// get deployment by name
+// GetByName get deployment by name
 func (d *Deployment) GetByName(name string) (*appsv1.Deployment, error) {
 	return d.clientset.AppsV1().Deployments(d.namespace).Get(d.ctx, name, d.Options.GetOptions)
 }
 
-// get deployment by name, alias to "GetByName"
+// Get get deployment by name, alias to "GetByName"
 func (d *Deployment) Get(name string) (*appsv1.Deployment, error) {
 	return d.clientset.AppsV1().Deployments(d.namespace).Get(d.ctx, name, d.Options.GetOptions)
 }
@@ -556,7 +614,7 @@ func (d *Deployment) ListAll() (*appsv1.DeploymentList, error) {
 	return d.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// get deployment all pods
+// GetPods get deployment all pods
 func (d *Deployment) GetPods(name string) (podList []string, err error) {
 	// 先检查 deployment 是否就绪
 	err = d.WaitReady(name, true)
@@ -592,7 +650,7 @@ func (d *Deployment) GetPods(name string) (podList []string, err error) {
 	return
 }
 
-// get deployment pv list by name
+// GetPV get deployment pv list by name
 func (d *Deployment) GetPV(name string) (pvList []string, err error) {
 	var (
 		pvcHandler *PersistentVolumeClaim
@@ -631,7 +689,7 @@ func (d *Deployment) GetPV(name string) (pvList []string, err error) {
 	return
 }
 
-// get deployment pvc list by name
+// GetPVC get deployment pvc list by name
 func (d *Deployment) GetPVC(name string) (pvcList []string, err error) {
 	// 等待 deployment 就绪
 	err = d.WaitReady(name, true)
@@ -658,7 +716,7 @@ func (d *Deployment) GetPVC(name string) (pvcList []string, err error) {
 	return
 }
 
-// check if the deployment is ready
+// IsReady check if the deployment is ready
 func (d *Deployment) IsReady(name string) bool {
 	// 获取 *appsv1.Deployment
 	deploy, err := d.Get(name)
@@ -674,7 +732,7 @@ func (d *Deployment) IsReady(name string) bool {
 	return false
 }
 
-// wait for the deployment to be in the ready state
+// WaitReady wait for the deployment to be in the ready state
 func (d *Deployment) WaitReady(name string, check bool) (err error) {
 	var (
 		watcher watch.Interface
@@ -729,7 +787,7 @@ func (d *Deployment) WaitReady(name string, check bool) (err error) {
 	}
 }
 
-// watch deployment by name
+// WatchByName watch deployment by name
 func (d *Deployment) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -810,7 +868,7 @@ func (d *Deployment) WatchByName(name string,
 	}
 }
 
-// watch deployment by label
+// WatchByLabel watch deployment by label
 func (d *Deployment) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -894,7 +952,7 @@ func (d *Deployment) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch deployment by label, alias to "WatchByLabel"
+// Watch watch deployment by label, alias to "WatchByLabel"
 func (d *Deployment) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return d.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

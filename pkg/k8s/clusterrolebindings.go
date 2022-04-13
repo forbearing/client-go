@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -151,7 +153,18 @@ func (c *ClusterRoleBinding) SetForceDelete(force bool) {
 	}
 }
 
-// create clusterrolebinding from bytes
+// CreateFromRaw create ClusterRoleBinding from map[string]interface{}
+func (c *ClusterRoleBinding) CreateFromRaw(raw map[string]interface{}) (*rbacv1.ClusterRoleBinding, error) {
+	crb := &rbacv1.ClusterRoleBinding{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, crb)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.clientset.RbacV1().ClusterRoleBindings().Create(c.ctx, crb, c.Options.CreateOptions)
+}
+
+// CreateFromBytes create clusterrolebinding from bytes
 func (c *ClusterRoleBinding) CreateFromBytes(data []byte) (*rbacv1.ClusterRoleBinding, error) {
 	crbJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -167,7 +180,7 @@ func (c *ClusterRoleBinding) CreateFromBytes(data []byte) (*rbacv1.ClusterRoleBi
 	return c.clientset.RbacV1().ClusterRoleBindings().Create(c.ctx, crb, c.Options.CreateOptions)
 }
 
-// create clusterrolebinding from file
+// CreateFromFile create clusterrolebinding from yaml file
 func (c *ClusterRoleBinding) CreateFromFile(path string) (*rbacv1.ClusterRoleBinding, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -176,12 +189,23 @@ func (c *ClusterRoleBinding) CreateFromFile(path string) (*rbacv1.ClusterRoleBin
 	return c.CreateFromBytes(data)
 }
 
-// create clusterrolebinding from file, alias to "CreateFromFile"
+// Create create clusterrolebinding from yaml file, alias to "CreateFromFile"
 func (c *ClusterRoleBinding) Create(path string) (*rbacv1.ClusterRoleBinding, error) {
 	return c.CreateFromFile(path)
 }
 
-// update clusterrolebinding from bytes
+// UpdateFromRaw update clusterrolebinding from map[string]interface{}
+func (c *ClusterRoleBinding) UpdateFromRaw(raw map[string]interface{}) (*rbacv1.ClusterRoleBinding, error) {
+	crb := &rbacv1.ClusterRoleBinding{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, crb)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.clientset.RbacV1().ClusterRoleBindings().Update(c.ctx, crb, c.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update clusterrolebinding from bytes
 func (c *ClusterRoleBinding) UpdateFromBytes(data []byte) (*rbacv1.ClusterRoleBinding, error) {
 	crbJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -197,7 +221,7 @@ func (c *ClusterRoleBinding) UpdateFromBytes(data []byte) (*rbacv1.ClusterRoleBi
 	return c.clientset.RbacV1().ClusterRoleBindings().Update(c.ctx, crb, c.Options.UpdateOptions)
 }
 
-// update clusterrolebinding from file
+// UpdateFromFile update clusterrolebinding from yaml file
 func (c *ClusterRoleBinding) UpdateFromFile(path string) (*rbacv1.ClusterRoleBinding, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -206,12 +230,27 @@ func (c *ClusterRoleBinding) UpdateFromFile(path string) (*rbacv1.ClusterRoleBin
 	return c.UpdateFromBytes(data)
 }
 
-// update clusterrolebinding from file, alias to "UpdateFromFile"
+// Update update clusterrolebinding from file, alias to "UpdateFromFile"
 func (c *ClusterRoleBinding) Update(path string) (*rbacv1.ClusterRoleBinding, error) {
 	return c.UpdateFromFile(path)
 }
 
-// apply clusterrolebinding from bytes
+// ApplyFromRaw apply clusterrolebinding from map[string]interface{}
+func (c *ClusterRoleBinding) ApplyFromRaw(raw map[string]interface{}) (*rbacv1.ClusterRoleBinding, error) {
+	crb := &rbacv1.ClusterRoleBinding{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, crb)
+	if err != nil {
+		return nil, err
+	}
+
+	crb, err = c.clientset.RbacV1().ClusterRoleBindings().Create(c.ctx, crb, c.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		crb, err = c.clientset.RbacV1().ClusterRoleBindings().Update(c.ctx, crb, c.Options.UpdateOptions)
+	}
+	return crb, err
+}
+
+// ApplyFromBytes apply clusterrolebinding from bytes
 func (c *ClusterRoleBinding) ApplyFromBytes(data []byte) (crb *rbacv1.ClusterRoleBinding, err error) {
 	crb, err = c.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -220,7 +259,7 @@ func (c *ClusterRoleBinding) ApplyFromBytes(data []byte) (crb *rbacv1.ClusterRol
 	return
 }
 
-// apply clusterrolebinding from file
+// ApplyFromFile apply clusterrolebinding from yaml file
 func (c *ClusterRoleBinding) ApplyFromFile(path string) (crb *rbacv1.ClusterRoleBinding, err error) {
 	crb, err = c.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -229,12 +268,12 @@ func (c *ClusterRoleBinding) ApplyFromFile(path string) (crb *rbacv1.ClusterRole
 	return
 }
 
-// apply clusterrolebinding from file, alias to "ApplyFromFile"
+// Apply apply clusterrolebinding from file, alias to "ApplyFromFile"
 func (c *ClusterRoleBinding) Apply(path string) (*rbacv1.ClusterRoleBinding, error) {
 	return c.ApplyFromFile(path)
 }
 
-// delete clusterrolebinding from bytes
+// DeleteFromBytes delete clusterrolebinding from bytes
 func (c *ClusterRoleBinding) DeleteFromBytes(data []byte) error {
 	crbJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -250,7 +289,7 @@ func (c *ClusterRoleBinding) DeleteFromBytes(data []byte) error {
 	return c.DeleteByName(crb.Name)
 }
 
-// delete clusterrolebinding from file
+// DeleteFromFile delete clusterrolebinding from yaml file
 func (c *ClusterRoleBinding) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -259,17 +298,17 @@ func (c *ClusterRoleBinding) DeleteFromFile(path string) error {
 	return c.DeleteFromBytes(data)
 }
 
-// delete clusterrolebinding by name
+// DeleteByName delete clusterrolebinding by name
 func (c *ClusterRoleBinding) DeleteByName(name string) error {
 	return c.clientset.RbacV1().ClusterRoleBindings().Delete(c.ctx, name, c.Options.DeleteOptions)
 }
 
-// delete clusterrolebinding by name, alias to "DeleteByName"
+// Delete delete clusterrolebinding by name, alias to "DeleteByName"
 func (c *ClusterRoleBinding) Delete(name string) error {
 	return c.DeleteByName(name)
 }
 
-// get clusterrolebinding from bytes
+// GetFromBytes get clusterrolebinding from bytes
 func (c *ClusterRoleBinding) GetFromBytes(data []byte) (*rbacv1.ClusterRoleBinding, error) {
 	crbJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -285,7 +324,7 @@ func (c *ClusterRoleBinding) GetFromBytes(data []byte) (*rbacv1.ClusterRoleBindi
 	return c.GetByName(crb.Name)
 }
 
-// get clusterrolebinding from file
+// GetFromFile get clusterrolebinding from yaml file
 func (c *ClusterRoleBinding) GetFromFile(path string) (*rbacv1.ClusterRoleBinding, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -294,34 +333,34 @@ func (c *ClusterRoleBinding) GetFromFile(path string) (*rbacv1.ClusterRoleBindin
 	return c.GetFromBytes(data)
 }
 
-// get clusterrolebinding by name
+// GetByName get clusterrolebinding by name
 func (c *ClusterRoleBinding) GetByName(name string) (*rbacv1.ClusterRoleBinding, error) {
 	return c.clientset.RbacV1().ClusterRoleBindings().Get(c.ctx, name, c.Options.GetOptions)
 }
 
-// get clusterrolebinding by name, alias to "GetByName"
+// Get get clusterrolebinding by name, alias to "GetByName"
 func (c *ClusterRoleBinding) Get(name string) (*rbacv1.ClusterRoleBinding, error) {
 	return c.clientset.RbacV1().ClusterRoleBindings().Get(c.ctx, name, c.Options.GetOptions)
 }
 
-// list clusterrolebindings by labels
+// ListByLabel list clusterrolebindings by labels
 func (c *ClusterRoleBinding) ListByLabel(labels string) (*rbacv1.ClusterRoleBindingList, error) {
 	listOptions := c.Options.ListOptions.DeepCopy()
 	listOptions.LabelSelector = labels
 	return c.clientset.RbacV1().ClusterRoleBindings().List(c.ctx, *listOptions)
 }
 
-// list clusterrolebindings by labels, alias to "ListByLabel"
+// List list clusterrolebindings by labels, alias to "ListByLabel"
 func (c *ClusterRoleBinding) List(labels string) (*rbacv1.ClusterRoleBindingList, error) {
 	return c.ListByLabel(labels)
 }
 
-// list all clusterrolebindings in the k8s cluster
+// ListAll list all clusterrolebindings in the k8s cluster
 func (c *ClusterRoleBinding) ListAll() (*rbacv1.ClusterRoleBindingList, error) {
 	return c.ListByLabel("")
 }
 
-// watch clusterrolebindings by name
+// WatchByName  watch clusterrolebindings by name
 func (c *ClusterRoleBinding) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -364,7 +403,7 @@ func (c *ClusterRoleBinding) WatchByName(name string,
 	}
 }
 
-// watch clusterrolebindings by labelSelector
+// WatchByLabel watch clusterrolebindings by labelSelector
 func (c *ClusterRoleBinding) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -410,7 +449,7 @@ func (c *ClusterRoleBinding) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch clusterrolebinding by name, alias to "WatchByName"
+// Watch watch clusterrolebinding by name, alias to "WatchByName"
 func (c *ClusterRoleBinding) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) error {
 	return c.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

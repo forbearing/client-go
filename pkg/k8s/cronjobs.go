@@ -10,7 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -199,7 +201,25 @@ func (c *CronJob) SetPropagationPolicy(policy string) {
 	}
 }
 
-// create cronjob from bytes
+// CreateFromRaw create cronjob from map[string]interface{}
+func (c *CronJob) CreateFromRaw(raw map[string]interface{}) (*batchv1.CronJob, error) {
+	cronjob := &batchv1.CronJob{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, cronjob)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(cronjob.Namespace) != 0 {
+		namespace = cronjob.Namespace
+	} else {
+		namespace = c.namespace
+	}
+
+	return c.clientset.BatchV1().CronJobs(namespace).Create(c.ctx, cronjob, c.Options.CreateOptions)
+}
+
+// CreateFromBytes create cronjob from bytes
 func (c *CronJob) CreateFromBytes(data []byte) (*batchv1.CronJob, error) {
 	cronjobJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -222,7 +242,7 @@ func (c *CronJob) CreateFromBytes(data []byte) (*batchv1.CronJob, error) {
 	return c.clientset.BatchV1().CronJobs(namespace).Create(c.ctx, cronjob, c.Options.CreateOptions)
 }
 
-// create cronjob from file
+// CreateFromFile create cronjob from yaml file
 func (c *CronJob) CreateFromFile(path string) (*batchv1.CronJob, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -231,12 +251,30 @@ func (c *CronJob) CreateFromFile(path string) (*batchv1.CronJob, error) {
 	return c.CreateFromBytes(data)
 }
 
-// create cronjob from file, alias to "CreateFromFile"
+// Create create cronjob from file, alias to "CreateFromFile"
 func (c *CronJob) Create(path string) (*batchv1.CronJob, error) {
 	return c.CreateFromFile(path)
 }
 
-// update cronjob from bytes
+// UpdateFromRaw update cronjob from map[string]interface{}
+func (c *CronJob) UpdateFromRaw(raw map[string]interface{}) (*batchv1.CronJob, error) {
+	cronjob := &batchv1.CronJob{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, cronjob)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(cronjob.Namespace) != 0 {
+		namespace = cronjob.Namespace
+	} else {
+		namespace = c.namespace
+	}
+
+	return c.clientset.BatchV1().CronJobs(namespace).Update(c.ctx, cronjob, c.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update cronjob from bytes
 func (c *CronJob) UpdateFromBytes(data []byte) (*batchv1.CronJob, error) {
 	cronjobJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -259,7 +297,7 @@ func (c *CronJob) UpdateFromBytes(data []byte) (*batchv1.CronJob, error) {
 	return c.clientset.BatchV1().CronJobs(namespace).Update(c.ctx, cronjob, c.Options.UpdateOptions)
 }
 
-// update cronjob from file
+// UpdateFromFile update cronjob from yaml file
 func (c *CronJob) UpdateFromFile(path string) (*batchv1.CronJob, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -268,12 +306,34 @@ func (c *CronJob) UpdateFromFile(path string) (*batchv1.CronJob, error) {
 	return c.UpdateFromBytes(data)
 }
 
-// update cronjob from file, alias to "UpdateFromFile"
+// Update update cronjob from file, alias to "UpdateFromFile"
 func (c *CronJob) Update(path string) (*batchv1.CronJob, error) {
 	return c.UpdateFromFile(path)
 }
 
-// apply cronjob from bytes
+// ApplyFromRaw apply cronjob from map[string]interface{}
+func (p *CronJob) ApplyFromRaw(raw map[string]interface{}) (*batchv1.CronJob, error) {
+	cronjob := &batchv1.CronJob{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, cronjob)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(cronjob.Namespace) != 0 {
+		namespace = cronjob.Namespace
+	} else {
+		namespace = p.namespace
+	}
+
+	cronjob, err = p.clientset.BatchV1().CronJobs(namespace).Create(p.ctx, cronjob, p.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		cronjob, err = p.clientset.BatchV1().CronJobs(namespace).Update(p.ctx, cronjob, p.Options.UpdateOptions)
+	}
+	return cronjob, err
+}
+
+// ApplyFromBytes apply cronjob from bytes
 func (c *CronJob) ApplyFromBytes(data []byte) (cronjob *batchv1.CronJob, err error) {
 	cronjob, err = c.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -282,7 +342,7 @@ func (c *CronJob) ApplyFromBytes(data []byte) (cronjob *batchv1.CronJob, err err
 	return
 }
 
-// apply cronjob from file
+// ApplyFromFile apply cronjob from yaml file
 func (c *CronJob) ApplyFromFile(path string) (cronjob *batchv1.CronJob, err error) {
 	cronjob, err = c.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -291,12 +351,12 @@ func (c *CronJob) ApplyFromFile(path string) (cronjob *batchv1.CronJob, err erro
 	return
 }
 
-// apply cronjob from file, alias to "ApplyFromFile"
+// Apply apply cronjob from file, alias to "ApplyFromFile"
 func (c *CronJob) Apply(path string) (*batchv1.CronJob, error) {
 	return c.ApplyFromFile(path)
 }
 
-// delete cronjob from bytes
+// DeleteFromBytes delete cronjob from bytes
 func (c *CronJob) DeleteFromBytes(data []byte) (err error) {
 	cronjobJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -319,7 +379,7 @@ func (c *CronJob) DeleteFromBytes(data []byte) (err error) {
 	return c.clientset.BatchV1().CronJobs(namespace).Delete(c.ctx, cronjob.Name, c.Options.DeleteOptions)
 }
 
-// delete cronjob from file
+// DeleteFromFile delete cronjob from yaml file
 func (c *CronJob) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -328,17 +388,17 @@ func (c *CronJob) DeleteFromFile(path string) error {
 	return c.DeleteFromBytes(data)
 }
 
-// delete cronjob by name
+// DeleteByName delete cronjob by name
 func (c *CronJob) DeleteByName(name string) error {
 	return c.clientset.BatchV1().CronJobs(c.namespace).Delete(c.ctx, name, c.Options.DeleteOptions)
 }
 
-// delete cronjob by name, alias to "DeleteByName"
+// Delete delete cronjob by name, alias to "DeleteByName"
 func (c *CronJob) Delete(name string) (err error) {
 	return c.DeleteByName(name)
 }
 
-// get cronjob from bytes
+// GetFromBytes get cronjob from bytes
 func (c *CronJob) GetFromBytes(data []byte) (*batchv1.CronJob, error) {
 	cronjobJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -360,7 +420,7 @@ func (c *CronJob) GetFromBytes(data []byte) (*batchv1.CronJob, error) {
 	return c.clientset.BatchV1().CronJobs(namespace).Get(c.ctx, cronjob.Name, c.Options.GetOptions)
 }
 
-// get cronjob from file
+// GetFromFileget cronjob from yaml file
 func (c *CronJob) GetFromFile(path string) (*batchv1.CronJob, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -369,7 +429,7 @@ func (c *CronJob) GetFromFile(path string) (*batchv1.CronJob, error) {
 	return c.GetFromBytes(data)
 }
 
-// get cronjob by name
+//Get  get cronjob by name
 func (c *CronJob) Get(name string) (*batchv1.CronJob, error) {
 	return c.clientset.BatchV1().CronJobs(c.namespace).Get(c.ctx, name, c.Options.GetOptions)
 }
@@ -381,7 +441,7 @@ func (c *CronJob) ListByLabel(labels string) (*batchv1.CronJobList, error) {
 	return c.clientset.BatchV1().CronJobs(c.namespace).List(c.ctx, *listOptions)
 }
 
-// list cronjobs by labels, alias to ListByLabel
+// List list cronjobs by labels, alias to ListByLabel
 func (c *CronJob) List(labels string) (*batchv1.CronJobList, error) {
 	return c.ListByLabel(labels)
 }
@@ -418,7 +478,7 @@ func (c *CronJob) GetJobs(name string) ([]batchv1.Job, error) {
 	return jl, nil
 }
 
-// watch cronjobs by name
+// WatchByName watch cronjobs by name
 func (c *CronJob) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -461,7 +521,7 @@ func (c *CronJob) WatchByName(name string,
 	}
 }
 
-// watch cronjobs by labelSelector
+// WatchByLabel watch cronjobs by labelSelector
 func (c *CronJob) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -507,7 +567,7 @@ func (c *CronJob) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch cronjobs by name, alias to "WatchByName"
+// Watch watch cronjobs by name, alias to "WatchByName"
 func (c *CronJob) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return c.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

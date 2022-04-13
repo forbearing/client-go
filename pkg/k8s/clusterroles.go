@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -151,7 +153,18 @@ func (c *ClusterRole) SetForceDelete(force bool) {
 	}
 }
 
-// create clusterrole from bytes
+// CreateFromRaw create clusterrole from map[string]interface{}
+func (c *ClusterRole) CreateFromRaw(raw map[string]interface{}) (*rbacv1.ClusterRole, error) {
+	cr := &rbacv1.ClusterRole{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, cr)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.clientset.RbacV1().ClusterRoles().Create(c.ctx, cr, c.Options.CreateOptions)
+}
+
+// CreateFromBytes create clusterrole from bytes
 func (c *ClusterRole) CreateFromBytes(data []byte) (*rbacv1.ClusterRole, error) {
 	crJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -166,7 +179,7 @@ func (c *ClusterRole) CreateFromBytes(data []byte) (*rbacv1.ClusterRole, error) 
 	return c.clientset.RbacV1().ClusterRoles().Create(c.ctx, cr, c.Options.CreateOptions)
 }
 
-// create clusterrole from file
+// CreateFromFile create clusterrole from yaml file
 func (c *ClusterRole) CreateFromFile(path string) (*rbacv1.ClusterRole, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -175,12 +188,23 @@ func (c *ClusterRole) CreateFromFile(path string) (*rbacv1.ClusterRole, error) {
 	return c.CreateFromBytes(data)
 }
 
-// create clusterrole from file, alias to "CreateFromFile"
+// Create create clusterrole from yaml file, alias to "CreateFromFile"
 func (c *ClusterRole) Create(path string) (*rbacv1.ClusterRole, error) {
 	return c.CreateFromFile(path)
 }
 
-// update clusterrole from bytes
+// UpdateFromRaw update clusterrole from map[string]interface{}
+func (c *ClusterRole) UpdateFromRaw(raw map[string]interface{}) (*rbacv1.ClusterRole, error) {
+	cr := &rbacv1.ClusterRole{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, cr)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.clientset.RbacV1().ClusterRoles().Update(c.ctx, cr, c.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update clusterrole from bytes
 func (c *ClusterRole) UpdateFromBytes(data []byte) (*rbacv1.ClusterRole, error) {
 	crJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -195,7 +219,7 @@ func (c *ClusterRole) UpdateFromBytes(data []byte) (*rbacv1.ClusterRole, error) 
 	return c.clientset.RbacV1().ClusterRoles().Update(c.ctx, cr, c.Options.UpdateOptions)
 }
 
-// update clusterrole from file
+// UpdateFromFile update clusterrole from yaml file
 func (c *ClusterRole) UpdateFromFile(path string) (*rbacv1.ClusterRole, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -204,12 +228,27 @@ func (c *ClusterRole) UpdateFromFile(path string) (*rbacv1.ClusterRole, error) {
 	return c.UpdateFromBytes(data)
 }
 
-// update clusterrole from file, alias to "UpdateFromFile"
+// Update update clusterrole from yaml file, alias to "UpdateFromFile"
 func (c *ClusterRole) Update(path string) (*rbacv1.ClusterRole, error) {
 	return c.UpdateFromFile(path)
 }
 
-// apply clusterrole from bytes
+// ApplyFromRaw apply clusterrole from map[string]interface{}
+func (p *ClusterRole) applyFromRaw(raw map[string]interface{}) (*rbacv1.ClusterRole, error) {
+	cr := &rbacv1.ClusterRole{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, cr)
+	if err != nil {
+		return nil, err
+	}
+
+	cr, err = p.clientset.RbacV1().ClusterRoles().Create(p.ctx, cr, p.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		cr, err = p.clientset.RbacV1().ClusterRoles().Update(p.ctx, cr, p.Options.UpdateOptions)
+	}
+	return cr, err
+}
+
+// ApplyFromBytes apply clusterrole from bytes
 func (c *ClusterRole) ApplyFromBytes(data []byte) (clusterrole *rbacv1.ClusterRole, err error) {
 	clusterrole, err = c.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -218,7 +257,7 @@ func (c *ClusterRole) ApplyFromBytes(data []byte) (clusterrole *rbacv1.ClusterRo
 	return
 }
 
-// apply clusterrole from file
+// ApplyFromFile apply clusterrole from yaml file
 func (c *ClusterRole) ApplyFromFile(path string) (clusterrole *rbacv1.ClusterRole, err error) {
 	clusterrole, err = c.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -227,12 +266,12 @@ func (c *ClusterRole) ApplyFromFile(path string) (clusterrole *rbacv1.ClusterRol
 	return
 }
 
-// apply clusterrole from file, alias to "ApplyFromFile"
+// Apply apply clusterrole from yaml file, alias to "ApplyFromFile"
 func (c *ClusterRole) Apply(path string) (*rbacv1.ClusterRole, error) {
 	return c.ApplyFromFile(path)
 }
 
-// delete clusterrole from bytes
+// DeleteFromBytes delete clusterrole from bytes
 func (c *ClusterRole) DeleteFromBytes(data []byte) error {
 	crJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -248,7 +287,7 @@ func (c *ClusterRole) DeleteFromBytes(data []byte) error {
 	return c.DeleteByName(cr.Name)
 }
 
-// delete clusterrole from file
+// DeleteFromFile delete clusterrole from yaml file
 func (c *ClusterRole) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -257,17 +296,17 @@ func (c *ClusterRole) DeleteFromFile(path string) error {
 	return c.DeleteFromBytes(data)
 }
 
-// delete clusterrole by name
+// DeleteByName delete clusterrole by name
 func (c *ClusterRole) DeleteByName(name string) (err error) {
 	return c.clientset.RbacV1().ClusterRoles().Delete(c.ctx, name, c.Options.DeleteOptions)
 }
 
-// delete clusterrole by name, alias to "DeleteByName"
+// Delete delete clusterrole by name, alias to "DeleteByName"
 func (c *ClusterRole) Delete(name string) (err error) {
 	return c.DeleteByName(name)
 }
 
-// get clusterrole from bytes
+// Get get clusterrole from bytes
 func (c *ClusterRole) GetFromBytes(data []byte) (*rbacv1.ClusterRole, error) {
 	crJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -283,7 +322,7 @@ func (c *ClusterRole) GetFromBytes(data []byte) (*rbacv1.ClusterRole, error) {
 	return c.GetByName(cr.Name)
 }
 
-// get clusterrole from file
+// GetFromFile get clusterrole from yaml file
 func (c *ClusterRole) GetFromFile(path string) (*rbacv1.ClusterRole, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -292,34 +331,34 @@ func (c *ClusterRole) GetFromFile(path string) (*rbacv1.ClusterRole, error) {
 	return c.GetFromBytes(data)
 }
 
-// get clusterrole by name
+// Get get clusterrole by name
 func (c *ClusterRole) GetByName(name string) (*rbacv1.ClusterRole, error) {
 	return c.clientset.RbacV1().ClusterRoles().Get(c.ctx, name, c.Options.GetOptions)
 }
 
-// get clusterrole by name, alias to "GetByName"
+// Get get clusterrole by name, alias to "GetByName"
 func (c *ClusterRole) Get(name string) (*rbacv1.ClusterRole, error) {
 	return c.GetByName(name)
 }
 
-// list clusterroles by labels
+// ListByLabel list clusterroles by labels
 func (c *ClusterRole) ListByLabel(labels string) (*rbacv1.ClusterRoleList, error) {
 	listOptions := c.Options.ListOptions.DeepCopy()
 	listOptions.LabelSelector = labels
 	return c.clientset.RbacV1().ClusterRoles().List(c.ctx, *listOptions)
 }
 
-// list clusterroles by labels, alias to "ListByLabel"
+// List list clusterroles by labels, alias to "ListByLabel"
 func (c *ClusterRole) List(labels string) (*rbacv1.ClusterRoleList, error) {
 	return c.ListByLabel(labels)
 }
 
-// list all clusterroles in the k8s cluster
+// ListAll list all clusterroles in the k8s cluster
 func (c *ClusterRole) ListAll(labels string) (*rbacv1.ClusterRoleList, error) {
 	return c.ListByLabel("")
 }
 
-// watch clusterroles by name
+// WatchByName watch clusterroles by name
 func (c *ClusterRole) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -362,7 +401,7 @@ func (c *ClusterRole) WatchByName(name string,
 	}
 }
 
-// watch clusterroles by labelSelector
+// WatchByLabel watch clusterroles by labelSelector
 func (c *ClusterRole) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -408,7 +447,7 @@ func (c *ClusterRole) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch clusterroles by name, alias to "WatchByName"
+// Watch watch clusterroles by name, alias to "WatchByName"
 func (c *ClusterRole) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return c.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -171,7 +173,25 @@ func (c *ConfigMap) SetForceDelete(force bool) {
 	}
 }
 
-// create configmap from bytes
+// CreateFromRaw create configmap from map[string]interface{}
+func (c *ConfigMap) CreateFromRaw(raw map[string]interface{}) (*corev1.ConfigMap, error) {
+	configmap := &corev1.ConfigMap{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, configmap)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(configmap.Namespace) != 0 {
+		namespace = configmap.Namespace
+	} else {
+		namespace = c.namespace
+	}
+
+	return c.clientset.CoreV1().ConfigMaps(namespace).Create(c.ctx, configmap, c.Options.CreateOptions)
+}
+
+// CreateFromBytes create configmap from bytes
 func (c *ConfigMap) CreateFromBytes(data []byte) (*corev1.ConfigMap, error) {
 	cmJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -194,7 +214,7 @@ func (c *ConfigMap) CreateFromBytes(data []byte) (*corev1.ConfigMap, error) {
 	return c.clientset.CoreV1().ConfigMaps(namespace).Create(c.ctx, configmap, c.Options.CreateOptions)
 }
 
-// create configmap from file
+// CreateFromFile create configmap from yaml file
 func (c *ConfigMap) CreateFromFile(path string) (*corev1.ConfigMap, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -203,12 +223,30 @@ func (c *ConfigMap) CreateFromFile(path string) (*corev1.ConfigMap, error) {
 	return c.CreateFromBytes(data)
 }
 
-// create configmap from file, alias to "CreateFromFile"
+// Create create configmap from yaml file, alias to "CreateFromFile"
 func (c *ConfigMap) Create(path string) (*corev1.ConfigMap, error) {
 	return c.CreateFromFile(path)
 }
 
-// update configmap from bytes
+// UpdateFromRaw update configmap from map[string]interface{}
+func (c *ConfigMap) UpdateFromRaw(raw map[string]interface{}) (*corev1.ConfigMap, error) {
+	configmap := &corev1.ConfigMap{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, configmap)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(configmap.Namespace) != 0 {
+		namespace = configmap.Namespace
+	} else {
+		namespace = c.namespace
+	}
+
+	return c.clientset.CoreV1().ConfigMaps(namespace).Update(c.ctx, configmap, c.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update configmap from bytes
 func (c *ConfigMap) UpdateFromBytes(data []byte) (*corev1.ConfigMap, error) {
 	cmJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -231,7 +269,7 @@ func (c *ConfigMap) UpdateFromBytes(data []byte) (*corev1.ConfigMap, error) {
 	return c.clientset.CoreV1().ConfigMaps(namespace).Update(c.ctx, configmap, c.Options.UpdateOptions)
 }
 
-// update configmap from file
+// UpdateFromFile update configmap from yaml file
 func (c *ConfigMap) UpdateFromFile(path string) (*corev1.ConfigMap, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -240,12 +278,34 @@ func (c *ConfigMap) UpdateFromFile(path string) (*corev1.ConfigMap, error) {
 	return c.UpdateFromBytes(data)
 }
 
-// update configmap from file, alias to "UpdateFromFile"
+// Update update configmap from file, alias to "UpdateFromFile"
 func (c *ConfigMap) Update(path string) (*corev1.ConfigMap, error) {
 	return c.UpdateFromFile(path)
 }
 
-// apply configmap from bytes
+// ApplyFromRaw apply configmap from map[string]interface{}
+func (c *ConfigMap) ApplyFromRaw(raw map[string]interface{}) (*corev1.ConfigMap, error) {
+	configmap := &corev1.ConfigMap{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, configmap)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(configmap.Namespace) != 0 {
+		namespace = configmap.Namespace
+	} else {
+		namespace = c.namespace
+	}
+
+	configmap, err = c.clientset.CoreV1().ConfigMaps(namespace).Create(c.ctx, configmap, c.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		configmap, err = c.clientset.CoreV1().ConfigMaps(namespace).Update(c.ctx, configmap, c.Options.UpdateOptions)
+	}
+	return configmap, err
+}
+
+// ApplyFromBytes apply configmap from bytes
 func (c *ConfigMap) ApplyFromBytes(data []byte) (configmap *corev1.ConfigMap, err error) {
 	configmap, err = c.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -254,7 +314,7 @@ func (c *ConfigMap) ApplyFromBytes(data []byte) (configmap *corev1.ConfigMap, er
 	return
 }
 
-// apply configmap from file
+// ApplyFromFile apply configmap from yaml file
 func (c *ConfigMap) ApplyFromFile(path string) (configmap *corev1.ConfigMap, err error) {
 	configmap, err = c.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -263,12 +323,12 @@ func (c *ConfigMap) ApplyFromFile(path string) (configmap *corev1.ConfigMap, err
 	return
 }
 
-// apply configmap from file, alias to "ApplyFromFile"
+// Apply apply configmap from yaml file, alias to "ApplyFromFile"
 func (c *ConfigMap) Apply(path string) (*corev1.ConfigMap, error) {
 	return c.ApplyFromFile(path)
 }
 
-// delete configmap from bytes
+// DeleteFromBytes delete configmap from bytes
 func (c *ConfigMap) DeleteFromBytes(data []byte) error {
 	cmJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -291,7 +351,7 @@ func (c *ConfigMap) DeleteFromBytes(data []byte) error {
 	return c.WithNamespace(namespace).DeleteByName(configmap.Name)
 }
 
-// delete configmap from file
+// DeleteFromFile delete configmap from yaml file
 func (c *ConfigMap) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -300,17 +360,17 @@ func (c *ConfigMap) DeleteFromFile(path string) error {
 	return c.DeleteFromBytes(data)
 }
 
-// delete configmap by name
+// DeleteByName delete configmap by name
 func (c *ConfigMap) DeleteByName(name string) error {
 	return c.clientset.CoreV1().ConfigMaps(c.namespace).Delete(c.ctx, name, c.Options.DeleteOptions)
 }
 
-// delete configmap by name, alias to "DeleteByName"
+// Delete delete configmap by name, alias to "DeleteByName"
 func (c *ConfigMap) Delete(name string) error {
 	return c.DeleteByName(name)
 }
 
-// get configmap from bytes
+// GetFromBytes get configmap from bytes
 func (c *ConfigMap) GetFromBytes(data []byte) (*corev1.ConfigMap, error) {
 	cmJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -333,7 +393,7 @@ func (c *ConfigMap) GetFromBytes(data []byte) (*corev1.ConfigMap, error) {
 	return c.WithNamespace(namespace).GetByName(configmap.Name)
 }
 
-// get configmap from file
+// GetFromFile get configmap from yaml file
 func (c *ConfigMap) GetFromFile(path string) (configmap *corev1.ConfigMap, err error) {
 	var data []byte
 	if data, err = ioutil.ReadFile(path); err != nil {
@@ -343,39 +403,39 @@ func (c *ConfigMap) GetFromFile(path string) (configmap *corev1.ConfigMap, err e
 	return
 }
 
-// get configmap by name
+// GetByName get configmap by name
 func (c *ConfigMap) GetByName(name string) (*corev1.ConfigMap, error) {
 	return c.clientset.CoreV1().ConfigMaps(c.namespace).Get(c.ctx, name, c.Options.GetOptions)
 }
 
-// get configmap by name
+// Get get configmap by name
 func (c *ConfigMap) Get(name string) (*corev1.ConfigMap, error) {
 	return c.GetByName(name)
 }
 
-// list configmaps by labels
+// ListByLabel list configmaps by labels
 func (c *ConfigMap) ListByLabel(labels string) (*corev1.ConfigMapList, error) {
 	listOptions := c.Options.ListOptions.DeepCopy()
 	listOptions.LabelSelector = labels
 	return c.clientset.CoreV1().ConfigMaps(c.namespace).List(c.ctx, *listOptions)
 }
 
-// list configmaps by labels, alias to "ListByLabel"
+// List list configmaps by labels, alias to "ListByLabel"
 func (c *ConfigMap) List(labels string) (*corev1.ConfigMapList, error) {
 	return c.ListByLabel(labels)
 }
 
-// list configmaps by namespace
+// ListByNamespace list configmaps by namespace
 func (c *ConfigMap) ListByNamespace(namespace string) (*corev1.ConfigMapList, error) {
 	return c.WithNamespace(namespace).ListByLabel("")
 }
 
-// list all configmaps in the k8s cluster
+// ListAll list all configmaps in the k8s cluster
 func (c *ConfigMap) ListAll() (*corev1.ConfigMapList, error) {
 	return c.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// get configmap .spec.data
+// GetData get configmap .spec.data
 func (c *ConfigMap) GetData(name string) (map[string]string, error) {
 	data := make(map[string]string)
 	configmap, err := c.Get(name)
@@ -386,7 +446,7 @@ func (c *ConfigMap) GetData(name string) (map[string]string, error) {
 	return data, nil
 }
 
-// watch configmap by name
+// WatchByName watch configmap by name
 func (c *ConfigMap) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -430,7 +490,7 @@ func (c *ConfigMap) WatchByName(name string,
 	}
 }
 
-// watch configmap by labelSelector
+// WatchByLabel watch configmap by labelSelector
 func (c *ConfigMap) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -477,7 +537,7 @@ func (c *ConfigMap) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch configmap by name, alias to "WatchByName"
+// WatchByName watch configmap by name, alias to "WatchByName"
 func (c *ConfigMap) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return c.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)

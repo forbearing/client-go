@@ -10,7 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -171,7 +173,25 @@ func (s *Secret) SetForceDelete(force bool) {
 	}
 }
 
-// create secret from bytes
+// CreateFromRaw create secret from map[string]interface{}
+func (s *Secret) CreateFromRaw(raw map[string]interface{}) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(secret.Namespace) != 0 {
+		namespace = secret.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	return s.clientset.CoreV1().Secrets(namespace).Create(s.ctx, secret, s.Options.CreateOptions)
+}
+
+// CreateFromBytes create secret from bytes
 func (s *Secret) CreateFromBytes(data []byte) (*corev1.Secret, error) {
 	secretJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -194,7 +214,7 @@ func (s *Secret) CreateFromBytes(data []byte) (*corev1.Secret, error) {
 	return s.clientset.CoreV1().Secrets(namespace).Create(s.ctx, secret, s.Options.CreateOptions)
 }
 
-// create secret from file
+// CreateFromFile create secret from yaml file
 func (s *Secret) CreateFromFile(path string) (*corev1.Secret, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -203,12 +223,30 @@ func (s *Secret) CreateFromFile(path string) (*corev1.Secret, error) {
 	return s.CreateFromBytes(data)
 }
 
-// create secret from file, alias to "CreateFromFile"
+// Create create secret from yaml file, alias to "CreateFromFile"
 func (s *Secret) Create(path string) (*corev1.Secret, error) {
 	return s.CreateFromFile(path)
 }
 
-// update secret from bytes
+// UpdateFromRaw update secret from map[string]interface{}
+func (s *Secret) UpdateFromRaw(raw map[string]interface{}) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(secret.Namespace) != 0 {
+		namespace = secret.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	return s.clientset.CoreV1().Secrets(namespace).Update(s.ctx, secret, s.Options.UpdateOptions)
+}
+
+// UpdateFromBytes update secret from bytes
 func (s *Secret) UpdateFromBytes(data []byte) (*corev1.Secret, error) {
 	secretJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -231,7 +269,7 @@ func (s *Secret) UpdateFromBytes(data []byte) (*corev1.Secret, error) {
 	return s.clientset.CoreV1().Secrets(namespace).Update(s.ctx, secret, s.Options.UpdateOptions)
 }
 
-// update secret from file
+// UpdateFromFile update secret from yaml file
 func (s *Secret) UpdateFromFile(path string) (*corev1.Secret, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -240,12 +278,34 @@ func (s *Secret) UpdateFromFile(path string) (*corev1.Secret, error) {
 	return s.UpdateFromBytes(data)
 }
 
-// update secret from file, alias to "UpdateFromFile"
+// Update update secret from yaml file, alias to "UpdateFromFile"
 func (s *Secret) Update(path string) (*corev1.Secret, error) {
 	return s.UpdateFromFile(path)
 }
 
-// apply secret from bytes
+// ApplyFromRaw apply secret from map[string]interface{}
+func (s *Secret) ApplyFromRaw(raw map[string]interface{}) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(raw, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespace string
+	if len(secret.Namespace) != 0 {
+		namespace = secret.Namespace
+	} else {
+		namespace = s.namespace
+	}
+
+	secret, err = s.clientset.CoreV1().Secrets(namespace).Create(s.ctx, secret, s.Options.CreateOptions)
+	if k8serrors.IsAlreadyExists(err) {
+		secret, err = s.clientset.CoreV1().Secrets(namespace).Update(s.ctx, secret, s.Options.UpdateOptions)
+	}
+	return secret, err
+}
+
+// ApplyFromBytes apply secret from bytes
 func (s *Secret) ApplyFromBytes(data []byte) (secret *corev1.Secret, err error) {
 	secret, err = s.CreateFromBytes(data)
 	if errors.IsAlreadyExists(err) {
@@ -254,7 +314,7 @@ func (s *Secret) ApplyFromBytes(data []byte) (secret *corev1.Secret, err error) 
 	return
 }
 
-// apply secret from file
+// ApplyFromFile apply secret from yaml file
 func (s *Secret) ApplyFromFile(path string) (secret *corev1.Secret, err error) {
 	secret, err = s.CreateFromFile(path)
 	if errors.IsAlreadyExists(err) {
@@ -263,12 +323,12 @@ func (s *Secret) ApplyFromFile(path string) (secret *corev1.Secret, err error) {
 	return
 }
 
-// apply secret from file, alias to "ApplyFromFile"
+// Apply apply secret from yaml file, alias to "ApplyFromFile"
 func (s *Secret) Apply(path string) (*corev1.Secret, error) {
 	return s.ApplyFromFile(path)
 }
 
-// delete secret from bytes
+// DeleteFromBytes delete secret from bytes
 func (s *Secret) DeleteFromBytes(data []byte) error {
 	secretJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -291,7 +351,7 @@ func (s *Secret) DeleteFromBytes(data []byte) error {
 	return s.WithNamespace(namespace).DeleteByName(secret.Name)
 }
 
-// delete secret from file
+// DeleteFromFile delete secret from yaml file
 func (s *Secret) DeleteFromFile(path string) error {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -300,17 +360,17 @@ func (s *Secret) DeleteFromFile(path string) error {
 	return s.DeleteFromBytes(data)
 }
 
-// delete secret by name
+// DeleteByName delete secret by name
 func (s *Secret) DeleteByName(name string) error {
 	return s.clientset.CoreV1().Secrets(s.namespace).Delete(s.ctx, name, s.Options.DeleteOptions)
 }
 
-// delete secret by name, alias to "DeleteByName"
+// Delete delete secret by name, alias to "DeleteByName"
 func (s *Secret) Delete(name string) error {
 	return s.DeleteByName(name)
 }
 
-// get secret from bytes
+// GetFromBytes get secret from bytes
 func (s *Secret) GetFromBytes(data []byte) (*corev1.Secret, error) {
 	secretJson, err := yaml.ToJSON(data)
 	if err != nil {
@@ -333,7 +393,7 @@ func (s *Secret) GetFromBytes(data []byte) (*corev1.Secret, error) {
 	return s.WithNamespace(namespace).GetByName(secret.Name)
 }
 
-// get secret from file
+// GetFromFile get secret from yaml file
 func (s *Secret) GetFromFile(path string) (*corev1.Secret, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -342,12 +402,12 @@ func (s *Secret) GetFromFile(path string) (*corev1.Secret, error) {
 	return s.GetFromBytes(data)
 }
 
-// get secret by name
+// GetByName get secret by name
 func (s *Secret) GetByName(name string) (*corev1.Secret, error) {
 	return s.clientset.CoreV1().Secrets(s.namespace).Get(s.ctx, name, s.Options.GetOptions)
 }
 
-// get secret by name, alias to "GetByName"
+// Get get secret by name, alias to "GetByName"
 func (s *Secret) Get(name string) (*corev1.Secret, error) {
 	return s.GetByName(name)
 }
@@ -374,7 +434,7 @@ func (s *Secret) ListAll() (*corev1.SecretList, error) {
 	return s.WithNamespace(metav1.NamespaceAll).ListByLabel("")
 }
 
-// watch secret by name
+// WatchByName watch secret by name
 func (s *Secret) WatchByName(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -418,7 +478,7 @@ func (s *Secret) WatchByName(name string,
 	}
 }
 
-// watch secret by labelSelector
+// WatchByLabel watch secret by labelSelector
 func (s *Secret) WatchByLabel(labelSelector string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	var (
@@ -466,7 +526,7 @@ func (s *Secret) WatchByLabel(labelSelector string,
 	}
 }
 
-// watch secret by name, alias to "WatchByName"
+// Watch watch secret by name, alias to "WatchByName"
 func (s *Secret) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return s.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
