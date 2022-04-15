@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -33,6 +35,7 @@ type Secret struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -47,6 +50,7 @@ func NewSecret(ctx context.Context, namespace, kubeconfig string) (secret *Secre
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	secret = &Secret{}
 
@@ -89,20 +93,21 @@ func NewSecret(ctx context.Context, namespace, kubeconfig string) (secret *Secre
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
 	secret.kubeconfig = kubeconfig
 	secret.namespace = namespace
-
 	secret.ctx = ctx
 	secret.config = config
 	secret.restClient = restClient
 	secret.clientset = clientset
 	secret.dynamicClient = dynamicClient
 	secret.discoveryClient = discoveryClient
-
+	secret.informerFactory = informerFactory
 	secret.Options = &HandlerOptions{}
 
 	return

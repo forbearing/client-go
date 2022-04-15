@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -33,6 +35,7 @@ type ServiceAccount struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -40,15 +43,16 @@ type ServiceAccount struct {
 }
 
 // new a ServiceAccount handler from kubeconfig or in-cluster config
-func NewServiceAccount(ctx context.Context, namespace, kubeconfig string) (serviceaccount *ServiceAccount, err error) {
+func NewServiceAccount(ctx context.Context, namespace, kubeconfig string) (sa *ServiceAccount, err error) {
 	var (
 		config          *rest.Config
 		restClient      *rest.RESTClient
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
-	serviceaccount = &ServiceAccount{}
+	sa = &ServiceAccount{}
 
 	// create rest config
 	if len(kubeconfig) != 0 {
@@ -89,21 +93,22 @@ func NewServiceAccount(ctx context.Context, namespace, kubeconfig string) (servi
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
-	serviceaccount.kubeconfig = kubeconfig
-	serviceaccount.namespace = namespace
-
-	serviceaccount.ctx = ctx
-	serviceaccount.config = config
-	serviceaccount.restClient = restClient
-	serviceaccount.clientset = clientset
-	serviceaccount.dynamicClient = dynamicClient
-	serviceaccount.discoveryClient = discoveryClient
-
-	serviceaccount.Options = &HandlerOptions{}
+	sa.kubeconfig = kubeconfig
+	sa.namespace = namespace
+	sa.ctx = ctx
+	sa.config = config
+	sa.restClient = restClient
+	sa.clientset = clientset
+	sa.dynamicClient = dynamicClient
+	sa.discoveryClient = discoveryClient
+	sa.informerFactory = informerFactory
+	sa.Options = &HandlerOptions{}
 
 	return
 }

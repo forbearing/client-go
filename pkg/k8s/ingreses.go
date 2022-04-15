@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -32,8 +34,8 @@ type Ingress struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
-
-	Options *HandlerOptions
+	informerFactory informers.SharedInformerFactory
+	Options         *HandlerOptions
 
 	sync.Mutex
 }
@@ -46,6 +48,7 @@ func NewIngress(ctx context.Context, namespace, kubeconfig string) (ingress *Ing
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	ingress = &Ingress{}
 
@@ -88,20 +91,21 @@ func NewIngress(ctx context.Context, namespace, kubeconfig string) (ingress *Ing
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
 	ingress.kubeconfig = kubeconfig
 	ingress.namespace = namespace
-
 	ingress.ctx = ctx
 	ingress.config = config
 	ingress.restClient = restClient
 	ingress.clientset = clientset
 	ingress.dynamicClient = dynamicClient
 	ingress.discoveryClient = discoveryClient
-
+	ingress.informerFactory = informerFactory
 	ingress.Options = &HandlerOptions{}
 
 	return

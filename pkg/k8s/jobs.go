@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -44,6 +45,7 @@ type Job struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -58,6 +60,7 @@ func NewJob(ctx context.Context, namespace, kubeconfig string) (job *Job, err er
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	job = &Job{}
 
@@ -100,20 +103,21 @@ func NewJob(ctx context.Context, namespace, kubeconfig string) (job *Job, err er
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
 	job.kubeconfig = kubeconfig
 	job.namespace = namespace
-
 	job.ctx = ctx
 	job.config = config
 	job.restClient = restClient
 	job.clientset = clientset
 	job.dynamicClient = dynamicClient
 	job.discoveryClient = discoveryClient
-
+	job.informerFactory = informerFactory
 	job.Options = &HandlerOptions{}
 
 	return

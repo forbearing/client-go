@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
@@ -31,6 +32,7 @@ import (
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -49,6 +51,7 @@ type Deployment struct {
 	dynamicClient      dynamic.Interface
 	discoveryClient    *discovery.DiscoveryClient
 	discoveryInterface discovery.DiscoveryInterface
+	informerFactory    informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -73,6 +76,7 @@ func NewDeployment(ctx context.Context, namespace, kubeconfig string) (deploymen
 		dynamicClient      dynamic.Interface
 		discoveryClient    *discovery.DiscoveryClient
 		discoveryInterface discovery.DiscoveryInterface
+		informerFactory    informers.SharedInformerFactory
 	)
 	deployment = &Deployment{}
 
@@ -117,6 +121,8 @@ func NewDeployment(ctx context.Context, namespace, kubeconfig string) (deploymen
 	if err != nil {
 		return nil, err
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 	//discoveryClient = clientset.DiscoveryClient
 	//discoveryInterface = clientset.Discovery()
 
@@ -126,13 +132,13 @@ func NewDeployment(ctx context.Context, namespace, kubeconfig string) (deploymen
 	}
 	deployment.kubeconfig = kubeconfig
 	deployment.namespace = namespace
-
 	deployment.ctx = ctx
 	deployment.config = config
 	deployment.restClient = restClient
 	deployment.clientset = clientset
 	deployment.dynamicClient = dynamicClient
 	deployment.discoveryClient = discoveryClient
+	deployment.informerFactory = informerFactory
 	//deployment.discoveryInterface = discoveryInterface
 	_ = discoveryInterface
 

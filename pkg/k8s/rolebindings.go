@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -32,6 +34,7 @@ type RoleBinding struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -46,6 +49,7 @@ func NewRoleBinding(ctx context.Context, namespace, kubeconfig string) (rolebind
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	rolebinding = &RoleBinding{}
 
@@ -88,20 +92,21 @@ func NewRoleBinding(ctx context.Context, namespace, kubeconfig string) (rolebind
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
 	rolebinding.kubeconfig = kubeconfig
 	rolebinding.namespace = namespace
-
 	rolebinding.ctx = ctx
 	rolebinding.config = config
 	rolebinding.restClient = restClient
 	rolebinding.clientset = clientset
 	rolebinding.dynamicClient = dynamicClient
 	rolebinding.discoveryClient = discoveryClient
-
+	rolebinding.informerFactory = informerFactory
 	rolebinding.Options = &HandlerOptions{}
 
 	return

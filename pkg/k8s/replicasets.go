@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -35,6 +37,7 @@ type ReplicaSet struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -49,6 +52,7 @@ func NewReplicaSet(ctx context.Context, namespace, kubeconfig string) (replicase
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	replicaset = &ReplicaSet{}
 
@@ -91,20 +95,21 @@ func NewReplicaSet(ctx context.Context, namespace, kubeconfig string) (replicase
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
 	replicaset.kubeconfig = kubeconfig
 	replicaset.namespace = namespace
-
 	replicaset.ctx = ctx
 	replicaset.config = config
 	replicaset.restClient = restClient
 	replicaset.clientset = clientset
 	replicaset.dynamicClient = dynamicClient
 	replicaset.discoveryClient = discoveryClient
-
+	replicaset.informerFactory = informerFactory
 	replicaset.Options = &HandlerOptions{}
 
 	return

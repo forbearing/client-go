@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -31,6 +33,7 @@ type PersistentVolume struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -45,6 +48,7 @@ func NewPersistentVolume(ctx context.Context, kubeconfig string) (pv *Persistent
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	pv = &PersistentVolume{}
 
@@ -87,16 +91,17 @@ func NewPersistentVolume(ctx context.Context, kubeconfig string) (pv *Persistent
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	pv.kubeconfig = kubeconfig
-
 	pv.ctx = ctx
 	pv.config = config
 	pv.restClient = restClient
 	pv.clientset = clientset
 	pv.dynamicClient = dynamicClient
 	pv.discoveryClient = discoveryClient
-
+	pv.informerFactory = informerFactory
 	pv.Options = &HandlerOptions{}
 
 	return

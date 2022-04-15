@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -31,6 +33,7 @@ type Namespace struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -45,6 +48,7 @@ func NewNamespace(ctx context.Context, kubeconfig string) (namespace *Namespace,
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	namespace = &Namespace{}
 
@@ -87,16 +91,17 @@ func NewNamespace(ctx context.Context, kubeconfig string) (namespace *Namespace,
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	namespace.kubeconfig = kubeconfig
-
 	namespace.ctx = ctx
 	namespace.config = config
 	namespace.restClient = restClient
 	namespace.clientset = clientset
 	namespace.dynamicClient = dynamicClient
 	namespace.discoveryClient = discoveryClient
-
+	namespace.informerFactory = informerFactory
 	namespace.Options = &HandlerOptions{}
 
 	return

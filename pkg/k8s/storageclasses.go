@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	storagev1 "k8s.io/api/storage/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -31,6 +33,7 @@ type StorageClass struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -45,6 +48,7 @@ func NewStorageClass(ctx context.Context, kubeconfig string) (sc *StorageClass, 
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	sc = &StorageClass{}
 
@@ -87,16 +91,17 @@ func NewStorageClass(ctx context.Context, kubeconfig string) (sc *StorageClass, 
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	sc.kubeconfig = kubeconfig
-
 	sc.ctx = ctx
 	sc.config = config
 	sc.restClient = restClient
 	sc.clientset = clientset
 	sc.dynamicClient = dynamicClient
 	sc.discoveryClient = discoveryClient
-
+	sc.informerFactory = informerFactory
 	sc.Options = &HandlerOptions{}
 
 	return

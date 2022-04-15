@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -31,6 +33,7 @@ type ClusterRole struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -45,6 +48,7 @@ func NewClusterRole(ctx context.Context, kubeconfig string) (clusterrole *Cluste
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	clusterrole = &ClusterRole{}
 
@@ -87,16 +91,17 @@ func NewClusterRole(ctx context.Context, kubeconfig string) (clusterrole *Cluste
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	clusterrole.kubeconfig = kubeconfig
-
 	clusterrole.ctx = ctx
 	clusterrole.config = config
 	clusterrole.restClient = restClient
 	clusterrole.clientset = clientset
 	clusterrole.dynamicClient = dynamicClient
 	clusterrole.discoveryClient = discoveryClient
-
+	clusterrole.informerFactory = informerFactory
 	clusterrole.Options = &HandlerOptions{}
 
 	return

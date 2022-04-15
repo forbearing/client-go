@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -31,6 +33,7 @@ type IngressClass struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -38,15 +41,16 @@ type IngressClass struct {
 }
 
 // new a ingressclass handler from kubeconfig or in-cluster config
-func NewIngressClass(ctx context.Context, kubeconfig string) (ingressclass *IngressClass, err error) {
+func NewIngressClass(ctx context.Context, kubeconfig string) (ingc *IngressClass, err error) {
 	var (
 		config          *rest.Config
 		restClient      *rest.RESTClient
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
-	ingressclass = &IngressClass{}
+	ingc = &IngressClass{}
 
 	// create rest config
 	if len(kubeconfig) != 0 {
@@ -87,17 +91,18 @@ func NewIngressClass(ctx context.Context, kubeconfig string) (ingressclass *Ingr
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
-	ingressclass.kubeconfig = kubeconfig
-
-	ingressclass.ctx = ctx
-	ingressclass.config = config
-	ingressclass.restClient = restClient
-	ingressclass.clientset = clientset
-	ingressclass.dynamicClient = dynamicClient
-	ingressclass.discoveryClient = discoveryClient
-
-	ingressclass.Options = &HandlerOptions{}
+	ingc.kubeconfig = kubeconfig
+	ingc.ctx = ctx
+	ingc.config = config
+	ingc.restClient = restClient
+	ingc.clientset = clientset
+	ingc.dynamicClient = dynamicClient
+	ingc.discoveryClient = discoveryClient
+	ingc.informerFactory = informerFactory
+	ingc.Options = &HandlerOptions{}
 
 	return
 }

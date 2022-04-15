@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -31,6 +33,7 @@ type ClusterRoleBinding struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -38,15 +41,16 @@ type ClusterRoleBinding struct {
 }
 
 // new a clusterrolebinding handler from kubeconfig or in-cluster config
-func NewClusterRoleBinding(ctx context.Context, kubeconfig string) (clusterrolebinding *ClusterRoleBinding, err error) {
+func NewClusterRoleBinding(ctx context.Context, kubeconfig string) (crb *ClusterRoleBinding, err error) {
 	var (
 		config          *rest.Config
 		restClient      *rest.RESTClient
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
-	clusterrolebinding = &ClusterRoleBinding{}
+	crb = &ClusterRoleBinding{}
 
 	// create rest config
 	if len(kubeconfig) != 0 {
@@ -87,19 +91,20 @@ func NewClusterRoleBinding(ctx context.Context, kubeconfig string) (clusterroleb
 	if err != nil {
 		return nil, err
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
-	clusterrolebinding.kubeconfig = kubeconfig
+	crb.kubeconfig = kubeconfig
+	crb.ctx = ctx
+	crb.config = config
+	crb.restClient = restClient
+	crb.clientset = clientset
+	crb.dynamicClient = dynamicClient
+	crb.discoveryClient = discoveryClient
+	crb.informerFactory = informerFactory
+	crb.Options = &HandlerOptions{}
 
-	clusterrolebinding.ctx = ctx
-	clusterrolebinding.config = config
-	clusterrolebinding.restClient = restClient
-	clusterrolebinding.clientset = clientset
-	clusterrolebinding.dynamicClient = dynamicClient
-	clusterrolebinding.discoveryClient = discoveryClient
-
-	clusterrolebinding.Options = &HandlerOptions{}
-
-	return clusterrolebinding, nil
+	return crb, nil
 }
 func (in *ClusterRoleBinding) DeepCopy() *ClusterRoleBinding {
 	out := new(ClusterRoleBinding)

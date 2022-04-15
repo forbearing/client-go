@@ -28,6 +28,7 @@ import (
 	//"k8s.io/client-go/deprecated/scheme"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -63,6 +64,7 @@ type Pod struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -77,6 +79,7 @@ func NewPod(ctx context.Context, namespace, kubeconfig string) (pod *Pod, err er
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	pod = &Pod{}
 
@@ -121,20 +124,21 @@ func NewPod(ctx context.Context, namespace, kubeconfig string) (pod *Pod, err er
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
 	pod.kubeconfig = kubeconfig
 	pod.namespace = namespace
-
 	pod.ctx = ctx
 	pod.config = config
 	pod.restClient = restClient
 	pod.clientset = clientset
 	pod.dynamicClient = dynamicClient
 	pod.discoveryClient = discoveryClient
-
+	pod.informerFactory = informerFactory
 	pod.Options = &HandlerOptions{}
 
 	return

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -32,6 +34,7 @@ type PersistentVolumeClaim struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -46,6 +49,7 @@ func NewPersistentVolumeClaim(ctx context.Context, namespace, kubeconfig string)
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	pvc = &PersistentVolumeClaim{}
 
@@ -88,19 +92,21 @@ func NewPersistentVolumeClaim(ctx context.Context, namespace, kubeconfig string)
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
+
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
 	pvc.kubeconfig = kubeconfig
 	pvc.namespace = namespace
-
 	pvc.ctx = ctx
 	pvc.config = config
 	pvc.restClient = restClient
 	pvc.clientset = clientset
 	pvc.dynamicClient = dynamicClient
 	pvc.discoveryClient = discoveryClient
-
+	pvc.informerFactory = informerFactory
 	pvc.Options = &HandlerOptions{}
 
 	return

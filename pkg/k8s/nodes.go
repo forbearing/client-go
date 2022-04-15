@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -33,6 +35,7 @@ type Node struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -47,6 +50,7 @@ func NewNode(ctx context.Context, kubeconfig string) (node *Node, err error) {
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	node = &Node{}
 
@@ -89,16 +93,17 @@ func NewNode(ctx context.Context, kubeconfig string) (node *Node, err error) {
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	node.kubeconfig = kubeconfig
-
 	node.ctx = ctx
 	node.config = config
 	node.restClient = restClient
 	node.clientset = clientset
 	node.dynamicClient = dynamicClient
 	node.discoveryClient = discoveryClient
-
+	node.informerFactory = informerFactory
 	node.Options = &HandlerOptions{}
 
 	return

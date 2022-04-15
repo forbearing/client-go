@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -32,6 +34,7 @@ type NetworkPolicy struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -39,15 +42,16 @@ type NetworkPolicy struct {
 }
 
 // new a networkpolicy handler from kubeconfig or in-cluster config
-func NewNetworkPolicy(ctx context.Context, namespace, kubeconfig string) (networkpolicy *NetworkPolicy, err error) {
+func NewNetworkPolicy(ctx context.Context, namespace, kubeconfig string) (netpol *NetworkPolicy, err error) {
 	var (
 		config          *rest.Config
 		restClient      *rest.RESTClient
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
-	networkpolicy = &NetworkPolicy{}
+	netpol = &NetworkPolicy{}
 
 	// create rest config
 	if len(kubeconfig) != 0 {
@@ -88,21 +92,22 @@ func NewNetworkPolicy(ctx context.Context, namespace, kubeconfig string) (networ
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
-	networkpolicy.kubeconfig = kubeconfig
-	networkpolicy.namespace = namespace
-
-	networkpolicy.ctx = ctx
-	networkpolicy.config = config
-	networkpolicy.restClient = restClient
-	networkpolicy.clientset = clientset
-	networkpolicy.dynamicClient = dynamicClient
-	networkpolicy.discoveryClient = discoveryClient
-
-	networkpolicy.Options = &HandlerOptions{}
+	netpol.kubeconfig = kubeconfig
+	netpol.namespace = namespace
+	netpol.ctx = ctx
+	netpol.config = config
+	netpol.restClient = restClient
+	netpol.clientset = clientset
+	netpol.dynamicClient = dynamicClient
+	netpol.discoveryClient = discoveryClient
+	netpol.informerFactory = informerFactory
+	netpol.Options = &HandlerOptions{}
 
 	return
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -17,6 +18,7 @@ import (
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -33,6 +35,7 @@ type ReplicationController struct {
 	clientset       *kubernetes.Clientset
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
+	informerFactory informers.SharedInformerFactory
 
 	Options *HandlerOptions
 
@@ -47,6 +50,7 @@ func NewReplicationController(ctx context.Context, namespace, kubeconfig string)
 		clientset       *kubernetes.Clientset
 		dynamicClient   dynamic.Interface
 		discoveryClient *discovery.DiscoveryClient
+		informerFactory informers.SharedInformerFactory
 	)
 	rc = &ReplicationController{}
 
@@ -91,20 +95,21 @@ func NewReplicationController(ctx context.Context, namespace, kubeconfig string)
 	if err != nil {
 		return
 	}
+	// create a sharedInformerFactory for all namespaces.
+	informerFactory = informers.NewSharedInformerFactory(clientset, time.Minute)
 
 	if len(namespace) == 0 {
 		namespace = metav1.NamespaceDefault
 	}
 	rc.kubeconfig = kubeconfig
 	rc.namespace = namespace
-
 	rc.ctx = ctx
 	rc.config = config
 	rc.restClient = restClient
 	rc.clientset = clientset
 	rc.dynamicClient = dynamicClient
 	rc.discoveryClient = discoveryClient
-
+	rc.informerFactory = informerFactory
 	rc.Options = &HandlerOptions{}
 
 	return
