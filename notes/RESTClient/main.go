@@ -23,6 +23,7 @@ func main() {
 	var (
 		restClient *rest.RESTClient
 		podList    = &core_v1.PodList{}
+		pod        = &core_v1.Pod{}
 		err        error
 	)
 	namespace := "kube-system"
@@ -49,6 +50,13 @@ func main() {
 	for _, pod := range podList.Items {
 		fmt.Printf("NAMESPACE:%v \t NAME:%v \t STATU:%v\n",
 			pod.Namespace, pod.Name, pod.Status.Phase)
+	}
+
+	// 获取一个具体的 pod
+	if err = restClient.Get().Namespace("default").Resource("pods").Name("myapp").
+		VersionedParams(&meta_v1.ListOptions{Limit: 500}, scheme.ParameterCodec).
+		Do(context.Background()).Into(pod); err != nil {
+		goto FAIL
 	}
 
 	return
