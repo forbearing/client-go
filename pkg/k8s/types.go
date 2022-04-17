@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -12,9 +11,9 @@ type HandlerInterface interface {
 	Create(path string) (interface{}, error)
 
 	UpdateFromRaw(raw map[string]interface{}) (interface{}, error)
-	UpdateFromBytes(data []byte) (*appsv1.Deployment, error)
-	UpdateFromFile(path string) (appsv1.Deployment, error)
-	Update(path string) (*appsv1.Deployment, error)
+	UpdateFromBytes(data []byte) (interface{}, error)
+	UpdateFromFile(path string) (interface{}, error)
+	Update(path string) (interface{}, error)
 
 	ApplyFromRaw(raw map[string]interface{}) (interface{}, error)
 	ApplyFromBytes(data []byte) (interface{}, error)
