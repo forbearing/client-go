@@ -6,13 +6,21 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	_ "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type UpdateObject struct {
+	oldObj interface{}
+	newObj interface{}
+}
 
 func podExamples() {
 	var (
 		yamlfile      = "./testData/pod.yaml"
 		name          = "test"
 		labelSelector = "type=pod"
+		stopCh        = make(chan struct{}, 1)
 	)
 	podHandler, err := k8s.NewPod(ctx, NAMESPACE, *kubeconfig)
 	if err != nil {
@@ -22,6 +30,61 @@ func podExamples() {
 	_ = name
 	_ = labelSelector
 	_ = podHandler
+	_ = stopCh
+
+	//// test TestInformer
+	//log.Info("test TestInformer")
+	//go func() {
+	//    log.Info("start run informer")
+	//    podHandler.TestInformer(stopCh)
+	//}()
+	//select {
+	//case <-stopCh:
+	//    log.Info("informer stoped")
+	//    return
+	//}
+
+	// test run informer
+	log.Info("test RunInformer")
+	addQueue := make(chan interface{}, 100)
+	updateQueue := make(chan UpdateObject, 100)
+	deleteQueue := make(chan interface{}, 100)
+	addFunc := func(obj interface{}) {
+		addQueue <- obj
+	}
+	updateFunc := func(oldObj, newObj interface{}) {
+		uo := UpdateObject{
+			oldObj: oldObj,
+			newObj: newObj,
+		}
+		updateQueue <- uo
+	}
+	deleteFunc := func(obj interface{}) {
+		deleteQueue <- obj
+	}
+	// RunInformer 必须开启一个新的 goroutine 来执行
+	go func() {
+		log.Info("start run informer")
+		podHandler.RunInformer(addFunc, updateFunc, deleteFunc, stopCh)
+		//podHandler.WithNamespace("default").RunInformer(addFunc, updateFunc, deleteFunc, stopCh)
+	}()
+	for {
+		select {
+		case obj := <-addQueue:
+			myObj := obj.(metav1.Object)
+			log.Infof("New Pod Added to Store: %s", myObj.GetName())
+		case uo := <-updateQueue:
+			oObj := uo.oldObj.(metav1.Object)
+			nObj := uo.newObj.(metav1.Object)
+			log.Infof("%s Pod Updated to %s", oObj.GetName(), nObj.GetName())
+		case obj := <-deleteQueue:
+			myObj := obj.(metav1.Object)
+			log.Infof("Pod Deleted from Store: %s", myObj.GetName())
+		case <-stopCh:
+			log.Info("informer stopped")
+			return
+		}
+	}
 
 	// 1. create pod from raw
 	podHandler.Delete("haha")
