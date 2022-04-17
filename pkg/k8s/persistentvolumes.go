@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -34,6 +35,7 @@ type PersistentVolume struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -103,6 +105,7 @@ func NewPersistentVolume(ctx context.Context, kubeconfig string) (pv *Persistent
 	pv.dynamicClient = dynamicClient
 	pv.discoveryClient = discoveryClient
 	pv.informerFactory = informerFactory
+	pv.informer = informerFactory.Core().V1().PersistentVolumes().Informer()
 	pv.Options = &HandlerOptions{}
 
 	return
@@ -118,6 +121,8 @@ func (in *PersistentVolume) DeepCopy() *PersistentVolume {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -532,4 +537,18 @@ func (p *PersistentVolume) WatchByLabel(labelSelector string,
 func (p *PersistentVolume) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return p.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
+}
+
+// RunInformer
+func (p *PersistentVolume) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	p.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	p.informer.Run(stopCh)
 }

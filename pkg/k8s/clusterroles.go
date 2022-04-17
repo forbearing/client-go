@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -34,6 +35,7 @@ type ClusterRole struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -103,6 +105,7 @@ func NewClusterRole(ctx context.Context, kubeconfig string) (clusterrole *Cluste
 	clusterrole.dynamicClient = dynamicClient
 	clusterrole.discoveryClient = discoveryClient
 	clusterrole.informerFactory = informerFactory
+	clusterrole.informer = informerFactory.Rbac().V1().ClusterRoles().Informer()
 	clusterrole.Options = &HandlerOptions{}
 
 	return
@@ -118,6 +121,8 @@ func (in *ClusterRole) DeepCopy() *ClusterRole {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -457,4 +462,18 @@ func (c *ClusterRole) WatchByLabel(labelSelector string,
 func (c *ClusterRole) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return c.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
+}
+
+// RunInformer
+func (c *ClusterRole) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	c.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	c.informer.Run(stopCh)
 }

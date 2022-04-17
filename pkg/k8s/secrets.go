@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -36,6 +37,7 @@ type Secret struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -109,6 +111,7 @@ func NewSecret(ctx context.Context, namespace, kubeconfig string) (secret *Secre
 	secret.dynamicClient = dynamicClient
 	secret.discoveryClient = discoveryClient
 	secret.informerFactory = informerFactory
+	secret.informer = informerFactory.Core().V1().Secrets().Informer()
 	secret.Options = &HandlerOptions{}
 
 	return
@@ -128,6 +131,8 @@ func (in *Secret) DeepCopy() *Secret {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -536,4 +541,18 @@ func (s *Secret) WatchByLabel(labelSelector string,
 func (s *Secret) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return s.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
+}
+
+// RunInformer
+func (s *Secret) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	s.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	s.informer.Run(stopCh)
 }

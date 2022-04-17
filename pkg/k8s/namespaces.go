@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -34,6 +35,7 @@ type Namespace struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -103,6 +105,7 @@ func NewNamespace(ctx context.Context, kubeconfig string) (namespace *Namespace,
 	namespace.dynamicClient = dynamicClient
 	namespace.discoveryClient = discoveryClient
 	namespace.informerFactory = informerFactory
+	namespace.informer = informerFactory.Core().V1().Namespaces().Informer()
 	namespace.Options = &HandlerOptions{}
 
 	return
@@ -123,6 +126,8 @@ func (in *Namespace) DeepCopy() *Namespace {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -459,4 +464,18 @@ func (n *Namespace) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	n.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
 	return n.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
+}
+
+// RunInformer
+func (n *Namespace) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	n.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	n.informer.Run(stopCh)
 }

@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -35,6 +36,7 @@ type Role struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -108,6 +110,7 @@ func NewRole(ctx context.Context, namespace, kubeconfig string) (role *Role, err
 	role.dynamicClient = dynamicClient
 	role.discoveryClient = discoveryClient
 	role.informerFactory = informerFactory
+	role.informer = informerFactory.Rbac().V1().Roles().Informer()
 	role.Options = &HandlerOptions{}
 
 	return
@@ -127,6 +130,8 @@ func (in *Role) DeepCopy() *Role {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -533,4 +538,18 @@ func (r *Role) WatchByLabel(labelSelector string,
 func (r *Role) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return r.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
+}
+
+// RunInformer
+func (r *Role) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	r.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	r.informer.Run(stopCh)
 }

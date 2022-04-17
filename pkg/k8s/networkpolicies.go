@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -35,6 +36,7 @@ type NetworkPolicy struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -108,6 +110,7 @@ func NewNetworkPolicy(ctx context.Context, namespace, kubeconfig string) (netpol
 	netpol.dynamicClient = dynamicClient
 	netpol.discoveryClient = discoveryClient
 	netpol.informerFactory = informerFactory
+	netpol.informer = informerFactory.Networking().V1().NetworkPolicies().Informer()
 	netpol.Options = &HandlerOptions{}
 
 	return
@@ -127,6 +130,8 @@ func (in *NetworkPolicy) DeepCopy() *NetworkPolicy {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -530,4 +535,18 @@ func (n *NetworkPolicy) WatchByLabel(labelSelector string,
 func (n *NetworkPolicy) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return n.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
+}
+
+// RunInformer
+func (n *NetworkPolicy) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	n.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	n.informer.Run(stopCh)
 }

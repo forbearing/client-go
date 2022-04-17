@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -35,6 +36,7 @@ type PersistentVolumeClaim struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -108,6 +110,7 @@ func NewPersistentVolumeClaim(ctx context.Context, namespace, kubeconfig string)
 	pvc.dynamicClient = dynamicClient
 	pvc.discoveryClient = discoveryClient
 	pvc.informerFactory = informerFactory
+	pvc.informer = informerFactory.Core().V1().PersistentVolumeClaims().Informer()
 	pvc.Options = &HandlerOptions{}
 
 	return
@@ -127,6 +130,8 @@ func (in *PersistentVolumeClaim) DeepCopy() *PersistentVolumeClaim {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -591,4 +596,18 @@ func (p *PersistentVolumeClaim) WatchByLabel(labelSelector string,
 func (p *PersistentVolumeClaim) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return p.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
+}
+
+// RunInformer
+func (p *PersistentVolumeClaim) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	p.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	p.informer.Run(stopCh)
 }

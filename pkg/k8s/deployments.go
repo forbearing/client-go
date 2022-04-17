@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -52,6 +53,7 @@ type Deployment struct {
 	discoveryClient    *discovery.DiscoveryClient
 	discoveryInterface discovery.DiscoveryInterface
 	informerFactory    informers.SharedInformerFactory
+	informer           cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -140,6 +142,7 @@ func NewDeployment(ctx context.Context, namespace, kubeconfig string) (deploymen
 	deployment.dynamicClient = dynamicClient
 	deployment.discoveryClient = discoveryClient
 	deployment.informerFactory = informerFactory
+	deployment.informer = informerFactory.Apps().V1().Deployments().Informer()
 	//deployment.discoveryInterface = discoveryInterface
 	_ = discoveryInterface
 
@@ -164,6 +167,8 @@ func (in *Deployment) DeepCopy() *Deployment {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -963,4 +968,18 @@ func (d *Deployment) WatchByLabel(labelSelector string,
 func (d *Deployment) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return d.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
+}
+
+// RunInformer
+func (d *Deployment) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	d.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	d.informer.Run(stopCh)
 }

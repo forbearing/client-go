@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	_ "k8s.io/metrics/pkg/apis/metrics"
 	_ "k8s.io/metrics/pkg/client/clientset/versioned"
@@ -36,6 +37,7 @@ type Node struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -105,6 +107,7 @@ func NewNode(ctx context.Context, kubeconfig string) (node *Node, err error) {
 	node.dynamicClient = dynamicClient
 	node.discoveryClient = discoveryClient
 	node.informerFactory = informerFactory
+	node.informer = informerFactory.Core().V1().Nodes().Informer()
 	node.Options = &HandlerOptions{}
 
 	return
@@ -120,6 +123,8 @@ func (in *Node) DeepCopy() *Node {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -442,4 +447,18 @@ func (n *Node) GetAllInfo() ([]NodeInfo, error) {
 	}
 
 	return nodeInfoList, nil
+}
+
+// RunInformer
+func (n *Node) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	n.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	n.informer.Run(stopCh)
 }

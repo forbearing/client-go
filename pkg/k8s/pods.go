@@ -25,13 +25,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 
-	//"k8s.io/client-go/deprecated/scheme"
+	//_ "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 )
@@ -65,6 +67,8 @@ type Pod struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
+	client          typedcorev1.PodInterface
 
 	Options *HandlerOptions
 
@@ -147,6 +151,8 @@ func NewPod(ctx context.Context, namespace, kubeconfig string) (pod *Pod, err er
 	pod.dynamicClient = dynamicClient
 	pod.discoveryClient = discoveryClient
 	pod.informerFactory = informerFactory
+	pod.informer = informerFactory.Core().V1().Pods().Informer()
+	pod.client = clientset.CoreV1().Pods(namespace)
 	pod.Options = &HandlerOptions{}
 
 	return
@@ -166,6 +172,9 @@ func (in *Pod) DeepCopy() *Pod {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
+	out.client = in.client
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -1139,4 +1148,40 @@ func (p *Pod) Execute(podName, containerName string, command []string) (err erro
 	}
 
 	return
+}
+
+func (p *Pod) TestInformer(stopCh chan struct{}) {
+	p.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			myObj := obj.(metav1.Object)
+			log.Infof("New Pod Added to Store: %s", myObj.GetName())
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oObj := oldObj.(metav1.Object)
+			nObj := newObj.(metav1.Object)
+			log.Infof("%s Pod Updated to %s", oObj.GetName(), nObj.GetName())
+		},
+		DeleteFunc: func(obj interface{}) {
+			myObj := obj.(metav1.Object)
+			log.Infof("Pod Deleted from Store: %s", myObj.GetName())
+		},
+	})
+	p.informer.Run(stopCh)
+}
+
+// addFunc, updateFunc, stopChan
+// informer 的三个回调函数 addFunc, updateFunc, deleteFunc
+// 这个管道用来存放回调函数处理的 k8s 资源对象
+// RunInformer
+func (p *Pod) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	p.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	p.informer.Run(stopCh)
 }

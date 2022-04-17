@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -35,6 +36,7 @@ type ConfigMap struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	informerFactory informers.SharedInformerFactory
+	informer        cache.SharedIndexInformer
 
 	Options *HandlerOptions
 
@@ -108,6 +110,7 @@ func NewConfigMap(ctx context.Context, namespace, kubeconfig string) (configmap 
 	configmap.dynamicClient = dynamicClient
 	configmap.discoveryClient = discoveryClient
 	configmap.informerFactory = informerFactory
+	configmap.informer = informerFactory.Core().V1().ConfigMaps().Informer()
 	configmap.Options = &HandlerOptions{}
 
 	return
@@ -127,6 +130,8 @@ func (in *ConfigMap) DeepCopy() *ConfigMap {
 	out.clientset = in.clientset
 	out.dynamicClient = in.dynamicClient
 	out.discoveryClient = in.discoveryClient
+	out.informerFactory = in.informerFactory
+	out.informer = in.informer
 
 	out.Options = &HandlerOptions{}
 	out.Options.ListOptions = *in.Options.ListOptions.DeepCopy()
@@ -547,4 +552,18 @@ func (c *ConfigMap) WatchByLabel(labelSelector string,
 func (c *ConfigMap) Watch(name string,
 	addFunc, modifyFunc, deleteFunc func(x interface{}), x interface{}) (err error) {
 	return c.WatchByName(name, addFunc, modifyFunc, deleteFunc, x)
+}
+
+// RunInformer
+func (c *ConfigMap) RunInformer(
+	addFunc func(obj interface{}),
+	updateFunc func(oldObj, newObj interface{}),
+	deleteFunc func(obj interface{}),
+	stopCh chan struct{}) {
+	c.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    addFunc,
+		UpdateFunc: updateFunc,
+		DeleteFunc: deleteFunc,
+	})
+	c.informer.Run(stopCh)
 }
