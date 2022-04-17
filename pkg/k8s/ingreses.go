@@ -71,6 +71,7 @@ func NewIngress(ctx context.Context, namespace, kubeconfig string) (ingress *Ing
 	config.APIPath = "api"
 	config.GroupVersion = &networkingv1.SchemeGroupVersion
 	config.NegotiatedSerializer = scheme.Codecs
+
 	// create a RESTClient for the given config
 	restClient, err = rest.RESTClientFor(config)
 	if err != nil {

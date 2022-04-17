@@ -73,6 +73,7 @@ func NewService(ctx context.Context, namespace, kubeconfig string) (service *Ser
 	config.APIPath = "api"
 	config.GroupVersion = &corev1.SchemeGroupVersion
 	config.NegotiatedSerializer = scheme.Codecs
+
 	// create a RESTClient for the given config
 	restClient, err = rest.RESTClientFor(config)
 	if err != nil {

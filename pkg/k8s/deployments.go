@@ -101,6 +101,7 @@ func NewDeployment(ctx context.Context, namespace, kubeconfig string) (deploymen
 	//config.GroupVersion = &schema.GroupVersion{Group: "apps", Version: "v1"}
 	config.NegotiatedSerializer = scheme.Codecs
 	//config.UserAgent = rest.DefaultKubernetesUserAgent()
+
 	// create a RESTClient for the given config
 	restClient, err = rest.RESTClientFor(config)
 	if err != nil {

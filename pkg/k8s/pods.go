@@ -104,6 +104,14 @@ func NewPod(ctx context.Context, namespace, kubeconfig string) (pod *Pod, err er
 	//config.GroupVersion = &schema.GroupVersion{Group: "", Version: "v1"}
 	config.NegotiatedSerializer = scheme.Codecs
 	//config.UserAgent = rest.DefaultKubernetesUserAgent()
+
+	//// k8s cluster endpoint, eg: https://10.250.16.10:8443
+	//config.Host = "127.0.0.1"
+	//config.ContentConfig = rest.ContentConfig{
+	//    GroupVersion:         &corev1.SchemeGroupVersion,
+	//    NegotiatedSerializer: scheme.Codecs,
+	//}
+
 	// create a RESTClient for the given config
 	restClient, err = rest.RESTClientFor(config)
 	if err != nil {

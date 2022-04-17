@@ -71,6 +71,7 @@ func NewClusterRoleBinding(ctx context.Context, kubeconfig string) (crb *Cluster
 	config.APIPath = "api"
 	config.GroupVersion = &rbacv1.SchemeGroupVersion
 	config.NegotiatedSerializer = scheme.Codecs
+
 	// create a RESTClient for the given config
 	restClient, err = rest.RESTClientFor(config)
 	if err != nil {

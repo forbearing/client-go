@@ -73,6 +73,7 @@ func NewNode(ctx context.Context, kubeconfig string) (node *Node, err error) {
 	config.APIPath = "api"
 	config.GroupVersion = &corev1.SchemeGroupVersion
 	config.NegotiatedSerializer = scheme.Codecs
+
 	// create a RESTClient for the given config
 	restClient, err = rest.RESTClientFor(config)
 	if err != nil {

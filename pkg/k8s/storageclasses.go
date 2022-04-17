@@ -71,6 +71,7 @@ func NewStorageClass(ctx context.Context, kubeconfig string) (sc *StorageClass, 
 	config.APIPath = "api"
 	config.GroupVersion = &storagev1.SchemeGroupVersion
 	config.NegotiatedSerializer = scheme.Codecs
+
 	// create a RESTClient for the given config
 	restClient, err = rest.RESTClientFor(config)
 	if err != nil {

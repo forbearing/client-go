@@ -72,9 +72,8 @@ func NewReplicationController(ctx context.Context, namespace, kubeconfig string)
 	// setup APIPath, GroupVersion and NegotiatedSerializer before initializing a RESTClient
 	config.APIPath = "api"
 	config.GroupVersion = &corev1.SchemeGroupVersion
-	//config.GroupVersion = &schema.GroupVersion{Group: "", Version: "v1"}
 	config.NegotiatedSerializer = scheme.Codecs
-	//config.UserAgent = rest.DefaultKubernetesUserAgent()
+
 	// create a RESTClient for the given config
 	restClient, err = rest.RESTClientFor(config)
 	if err != nil {

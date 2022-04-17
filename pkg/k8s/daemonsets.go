@@ -75,6 +75,7 @@ func NewDaemonSet(ctx context.Context, namespace, kubeconfig string) (daemonset 
 	config.APIPath = "api"
 	config.GroupVersion = &appsv1.SchemeGroupVersion
 	config.NegotiatedSerializer = scheme.Codecs
+
 	// create a RESTClient for the given config
 	restClient, err = rest.RESTClientFor(config)
 	if err != nil {
